@@ -219,6 +219,15 @@ class SimpleAudioIndexer(object):
         self.__audio[str(name)] += audio_binaries
 
     def get_audio_channels(self, abs_path_audio):
+        """
+        Parameters
+        ----------
+        abs_path_audio      str
+
+        Returns
+        -------
+        channel_num         int
+        """
         channel_num = int(
             subprocess.check_output(
                 ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
