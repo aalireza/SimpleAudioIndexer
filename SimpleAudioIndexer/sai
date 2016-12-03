@@ -74,6 +74,11 @@ class SimpleAudioIndexer(object):
     _read_audio(basename)
         A method that'll be called from the method `index_audio`. This method
         primarily validates/converts and reads the audio file(s)
+    get_audio_channels(abs_path_audio)
+    get_audio_sample_rate(abs_path_audio)
+    get_audio_sample_bit(abs_path_audio)
+    get_audio_duration_seconds(abs_path_audio)
+    get_audio_bit_rate(abs_path_audio)
     split_audio_by_duration(name, duration)
     split_audio_by_size(name, size)
     index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
