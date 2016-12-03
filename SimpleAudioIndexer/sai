@@ -100,8 +100,8 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search(word, part_of_bigger_word, timing_error)
-    search_all(word, part_of_bigger_word, timing_error)
+    search(query, part_of_bigger_word, timing_error)
+    search_all(queries, part_of_bigger_word, timing_error)
         Returns a dictionary of all results of all of the queries for all of the
         audio files.
     """
@@ -611,14 +611,14 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
-    def search(self, target, part_of_bigger_word=False, timing_error=0.1):
+    def search(self, query, part_of_bigger_word=False, timing_error=0.1):
         """
-        A generator that searches for the `target` within the audiofiles of the
+        A generator that searches for the `query` within the audiofiles of the
         src_dir.
 
         Parameters
         ----------
-        target          str
+        query          str
                         A string that'll be searched. It'll be splitted on
                         spaces and then each word gets sequentially searched
         part_of_bigger_word     bool
@@ -627,27 +627,27 @@ class SimpleAudioIndexer(object):
                                 given one are fine. Default is False.
         timing_error    float
                         Sometimes other words (almost always very small) would
-                        be detected between the words of the `target`. This
+                        be detected between the words of the `query`. This
                         parameter defines the timing difference/tolerance of the
                         search. By default it's 0.1, which means it'd be
-                        acceptable if the next word of the `target` is found
+                        acceptable if the next word of the `query` is found
                         before 0.1 seconds of the end of the previous word.
 
         Yields
         ------
         -               {"File Name": str,
-                         "Query": `target`,
+                         "Query": `query`,
                          "Result": (float, float)}
                          The result of the search is returned as a tuple which
                          is the value of the "Result" key. The first element
-                         of the tuple is the starting second of `target` and
-                         the last element is the ending second of `target`
+                         of the tuple is the starting second of `query` and
+                         the last element is the ending second of `query`
 
         """
         word_list = filter(
             lambda element: element is not None,
             ''.join(
-                filter(lambda char: char in (ascii_letters + " "), list(target))
+                filter(lambda char: char in (ascii_letters + " "), list(query))
             ).split(" ")
         )
         timestamps = self.get_timestamped_audio()
@@ -661,7 +661,7 @@ class SimpleAudioIndexer(object):
                     if len(result) == len(word_list):
                         yield {
                             "File Name": audio_filename,
-                            "Query": target,
+                            "Query": query,
                             "Result": tuple([result[0][0], result[-1][-1]])
                         }
                         result = list()
@@ -691,11 +691,12 @@ class SimpleAudioIndexer(object):
                                 given one are fine. Default is False.
         timing_error    float
                         Sometimes other words (almost always very small) would
-                        be detected between the words of the `target`. This
-                        parameter defines the timing difference/tolerance of the
-                        search. By default it's 0.1, which means it'd be
-                        acceptable if the next word of the `target` is found
-                        before 0.1 seconds of the end of the previous word.
+                        be detected between the words of the elements of
+                        `queries`. This parameter defines the timing
+                        difference/tolerance of the search. By default it's 0.1,
+                        which means it'd be acceptable if the next word of an
+                        element of `queries` is found before 0.1 seconds of the
+                        end of the previous word.
 
         Returns
         -------
