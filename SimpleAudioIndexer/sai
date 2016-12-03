@@ -19,6 +19,7 @@ limitations under the License.
 from ast import literal_eval
 from collections import defaultdict
 from distutils.spawn import find_executable
+from math import floor
 from pprint import pprint
 from shutil import rmtree
 from string import ascii_letters
@@ -104,6 +105,9 @@ class SimpleAudioIndexer(object):
     search_all(queries, part_of_bigger_word, timing_error)
         Returns a dictionary of all results of all of the queries for all of the
         audio files.
+    seconds_to_HHMMSS(seconds)
+        Retuns a string which is the hour, minute, second(milli) representation
+        of the intput `seconds`
     """
 
     def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
@@ -732,6 +736,25 @@ class SimpleAudioIndexer(object):
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
         return search_results
+
+    def seconds_to_HHMMSS(seconds):
+        """
+        Retuns a string which is the hour, minute, second(milli) representation
+        of the intput `seconds`
+
+        Parameters
+        ----------
+        seconds         float
+
+        Returns
+        -------
+        -               str
+                        Has the form <int>H<int>M<int>S.<float>
+        """
+        less_than_second = seconds - floor(seconds)
+        minutes, seconds = divmod(floor(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
 
 
 def argument_handler():
