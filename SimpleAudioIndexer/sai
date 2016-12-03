@@ -271,6 +271,15 @@ class SimpleAudioIndexer(object):
         return sample_bit
 
     def get_audio_duration_seconds(self, abs_path_audio):
+        """
+        Parameters
+        ----------
+        abs_path_audio      str
+
+        Returns
+        -------
+        total_seconds       int
+        """
         HHMMSS_duration = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
              """grep -oh "^[^=]*" """).format(
