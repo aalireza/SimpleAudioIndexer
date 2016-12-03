@@ -291,6 +291,15 @@ class SimpleAudioIndexer(object):
         return total_seconds
 
     def get_audio_bit_rate(self, abs_path_audio):
+        """
+        Parameters
+        -----------
+        abs_path_audio      str
+
+        Returns
+        -------
+        bit_rate            int
+        """
         bit_Rate_formatted = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""").format(
                 abs_path_audio, "Bit Rate"), shell=True).rstrip()
