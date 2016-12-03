@@ -29,7 +29,7 @@ import re
 import requests
 import subprocess
 
-needed_directories = ["audio/filtered", "audio/staging"]
+needed_directories = ["filtered", "staging"]
 
 
 class SimpleAudioIndexer(object):
@@ -46,7 +46,7 @@ class SimpleAudioIndexer(object):
     src_dir:            str
                         Absolute path to the source directory of audio files
                         such that the absolute path of the audio that'll be
-                        indexed would be `src_dir/audio/audio_file.wav`
+                        indexed would be `src_dir/audio_file.wav`
     verbose:            Bool
                         `True` if progress needs to be printed
     __api_limit_bytes:  int
@@ -109,7 +109,7 @@ class SimpleAudioIndexer(object):
         src_dir             str
                             Absolute path to the source directory of audio files
                             such that the absolute path of the audio that'll be
-                            indexed would be `src_dir/audio/audio_file.wav`
+                            indexed would be `src_dir/audio_file.wav`
         api_limit_bytes:    int
         verbose:            Bool
 
@@ -131,6 +131,10 @@ class SimpleAudioIndexer(object):
         if self.__ffmpeg is None:
             raise Exception("Either ffmpeg or avconv is needed. " +
                             "Neither is installed or accessible")
+        # Because `needed_directories` are needed even if the initialization of
+        # the object is not in a context manager for it to be created
+        # automatically.
+        self.__enter__()
 
     def __enter__(self):
         for directory in needed_directories:
@@ -168,15 +172,14 @@ class SimpleAudioIndexer(object):
                     `some-audio-file.wav`
         """
         name = ''.join(basename.split('.')[0])
-        name_abs_path = "{}/audio/{}".format(self.src_dir, basename)
+        name_abs_path = "{}/{}".format(self.src_dir, basename)
         staging_pattern = re.compile(str(name) + "\d{3}.wav")
 
         # Converts the audio if the format is not `wav`. It's better to read the
         # format from filename and not the audio header because more often than
         # not, they are corrupted.
         if basename.split('.')[-1] in ["mp3", "ogg", "flac"]:
-            converted_abs_path = "{}/audio/filtered/{}.wav".format(self.src_dir,
-                                                                   name)
+            converted_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
             if self.verbose:
                 print "{} is not wav. Converting to {}".format(
                     basename, converted_abs_path)
@@ -188,14 +191,14 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print "{} is wav. Copying to {}/filtered".format(name,
                                                                  self.src_dir)
-            subprocess.Popen(("cp {}/audio/{}.wav " +
-                             "{}/audio/filtered/{}.wav").format(
+            subprocess.Popen(("cp {}/{}.wav " +
+                             "{}/filtered/{}.wav").format(
                                  self.src_dir, name, self.src_dir, name),
                              shell=True).communicate()
 
         # Checks the file size. It's better to use 95% of the allocated size per
         # file since the upper limit is not always respected.
-        total_size = os.path.getsize("{}/audio/filtered/{}.wav".format(
+        total_size = os.path.getsize("{}/filtered/{}.wav".format(
             self.src_dir, name))
         if total_size >= self.__api_limit_bytes:
             if self.verbose:
@@ -205,17 +208,17 @@ class SimpleAudioIndexer(object):
         else:
             if self.verbose:
                 print "{}'s size is fine. Moving to staging...'".format(name)
-            subprocess.Popen(("mv {}/audio/filtered/{}.wav " +
-                             "{}/audio/staging/{}000.wav").format(
+            subprocess.Popen(("mv {}/filtered/{}.wav " +
+                             "{}/staging/{}000.wav").format(
                                  self.src_dir, name, self.src_dir, name),
                              shell=True).communicate()
 
         # Reading Section
         audio_binaries = list()
-        for audio_filename in os.listdir(str(self.src_dir) + "/audio/staging/"):
+        for audio_filename in os.listdir(str(self.src_dir) + "/staging/"):
             if staging_pattern.match(audio_filename) is not None:
                 with open(
-                    "{}/audio/staging/{}".format(
+                    "{}/staging/{}".format(
                         self.src_dir, audio_filename), "rb") as f:
                     if self.verbose:
                         print "Reading {}...".format(audio_filename)
@@ -325,9 +328,9 @@ class SimpleAudioIndexer(object):
                             name of `audiofile.wav` is `audiofile`
         duration_seconds    int
         """
-        subprocess.Popen(("{} -i {}/audio/filtered/{}.wav -c copy -map 0 " +
+        subprocess.Popen(("{} -i {}/filtered/{}.wav -c copy -map 0 " +
                           "-segment_time {} -f segment " +
-                          "{}/audio/staging/{}%03d.wav").format(
+                          "{}/staging/{}%03d.wav").format(
                              self.__ffmpeg, self.src_dir, name,
                              duration_seconds, self.src_dir, name),
                          shell=True).communicate()
@@ -345,7 +348,7 @@ class SimpleAudioIndexer(object):
         chunk_size          int
                             Should be in bytes
         """
-        audio_abs_path = "{}/audio/filtered/{}.wav".format(self.src_dir, name)
+        audio_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
         sample_rate = self.get_audio_sample_rate(audio_abs_path)
         sample_bit = self.get_audio_sample_bit(audio_abs_path)
         channel_num = self.get_audio_channels(audio_abs_path)
@@ -451,15 +454,15 @@ class SimpleAudioIndexer(object):
         if keywords_threshold is not None:
             params['keywords_threshold'] = keywords_threshold
 
-        for audio_basename in os.listdir("{}/audio/".format(self.src_dir)):
+        for audio_basename in os.listdir("{}".format(self.src_dir)):
             audio_name = ''.join(audio_basename.split('.')[:-1])
-            if audio_basename not in ["filtered", "staging", "tmp"]:
+            if audio_basename not in needed_directories:
                 if name is not None and audio_name != name:
                     continue
                 self._read_audio(audio_basename)
                 if name is not None and audio_name == name:
                     break
-        for staging_audio_name in os.listdir("{}/audio/staging".format(
+        for staging_audio_name in os.listdir("{}/staging".format(
           self.src_dir)):
             original_audio_name = ''.join(
                 staging_audio_name.split('.')[:-1]
@@ -539,7 +542,7 @@ class SimpleAudioIndexer(object):
         -------
         unified_timestamp   {str: [[str, float, float]]}
         """
-        staged_files = os.listdir("{}/audio/staging".format(self.src_dir))
+        staged_files = os.listdir("{}/staging".format(self.src_dir))
         unified_timestamps = dict()
         for timestamp_basename in self.__timestamps:
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
@@ -553,7 +556,7 @@ class SimpleAudioIndexer(object):
                 for split_index, splitted_file_timestamp in enumerate(
                   self.__timestamps[timestamp_basename]):
                     total_seconds = self.get_audio_duration_seconds(
-                        "{}/audio/staging/{}".format(
+                        "{}/staging/{}".format(
                             self.src_dir,
                             staged_splitted_file_basenames[split_index]
                         )
