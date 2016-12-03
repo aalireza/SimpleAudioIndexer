@@ -98,8 +98,8 @@ class SimpleAudioIndexer(object):
         whose value is a list of words and their beginning and ending time. It
         accounts for large files and does the timing calculations to return the
         correct result.
-    save_indexed_audio(destination)
-    load_indexed_audio(indexed_audio_abs_path)
+    save_indexed_audio(indexed_audio_file_abs_path)
+    load_indexed_audio(indexed_audio_file_abs_path)
     search(word)
     """
 
@@ -600,12 +600,12 @@ class SimpleAudioIndexer(object):
                     timestamp_basename]
         return unified_timestamps
 
-    def save_indexed_audio(self, destination_abs_path):
-        with open(destination_abs_path, "wb") as f:
+    def save_indexed_audio(self, indexed_audio_file_abs_path):
+        with open(indexed_audio_file_abs_path, "wb") as f:
             f.write(str(self.get_timestamped_audio()))
 
-    def load_indexed_audio(self, indexed_audio_abs_path):
-        with open(indexed_audio_abs_path, "rb") as f:
+    def load_indexed_audio(self, indexed_audio_file_abs_path):
+        with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
     def search(self, target, part_of_bigger_word=False, timing_error=0.1):
