@@ -236,6 +236,15 @@ class SimpleAudioIndexer(object):
         return channel_num
 
     def get_audio_sample_rate(self, abs_path_audio):
+        """
+        Parameters
+        ----------
+        abs_path_audio      str
+
+        Returns
+        -------
+        sample_rate         int
+        """
         sample_rate = int(
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
