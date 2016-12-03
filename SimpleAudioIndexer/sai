@@ -100,7 +100,10 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search(word)
+    search(word, part_of_bigger_word, timing_error)
+    search_all(word, part_of_bigger_word, timing_error)
+        Returns a dictionary of all results of all of the queries for all of the
+        audio files.
     """
 
     def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
@@ -610,7 +613,8 @@ class SimpleAudioIndexer(object):
 
     def search(self, target, part_of_bigger_word=False, timing_error=0.1):
         """
-        Searches for the `target` within the audiofiles of the src_dir.
+        A generator that searches for the `target` within the audiofiles of the
+        src_dir.
 
         Parameters
         ----------
@@ -670,6 +674,64 @@ class SimpleAudioIndexer(object):
                     else:
                         continue
 
+    def search_all(self, queries, part_of_bigger_word=False, timing_error=0.1):
+        """
+        Returns a dictionary of all results of all of the queries for all of the
+        audio files.
+
+        Parameters
+        ----------
+        queries         [str]
+                        A list of the strings that'll be searched. If type of
+                        queries is `str`, it'll be insterted into a list within
+                        the body of the method.
+        part_of_bigger_word     bool
+                                `True` if it's not needed for the exact word be
+                                detected and larger strings that contain the
+                                given one are fine. Default is False.
+        timing_error    float
+                        Sometimes other words (almost always very small) would
+                        be detected between the words of the `target`. This
+                        parameter defines the timing difference/tolerance of the
+                        search. By default it's 0.1, which means it'd be
+                        acceptable if the next word of the `target` is found
+                        before 0.1 seconds of the end of the previous word.
+
+        Returns
+        -------
+        search_results  {str: {str: [(float, float)]}}
+                        A dictionary whose keys are queries and whose values
+                        are dictionaries whose keys are all the audiofiles in
+                        which the query is present and whose values are a list
+                        whose elements are 2-tuples whose first element is
+                        the starting second of the query and whose values are
+                        the ending second. e.g.
+                        {"apple": {"fruits.wav" : [(1.1, 1.12)]}}
+
+        Raises
+        ------
+        TypeError       if `queries` is neither a list nor a str
+        """
+        # When printing the output of search_results, normally the defaultdict
+        # type would be shown as well. To print the `search_results` normally,
+        # defining a PrettyDefaultDict type that is printable the same way as a
+        # dict, is easier/faster than json.load(json.dump(x)) etc. and we don't
+        # actually have to deal with encoding either.
+        class PrettyDefaultDict(defaultdict):
+            __repr__ = dict.__repr__
+
+        if not isinstance(queries, (list, str)):
+            raise TypeError("Invalid query type.")
+        if type(queries) is not list:
+            queries = [queries]
+        search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
+        for query in queries:
+            search_gen = self.search(query, part_of_bigger_word, timing_error)
+            for search_result in search_gen:
+                search_results[query][
+                    search_result["File Name"]].append(search_result["Result"])
+        return search_results
+
 
 def argument_handler():
     parser = argparse.ArgumentParser()
@@ -704,4 +766,4 @@ if __name__ == '__main__':
     indexer.index_audio(model=model)
     if show_timestamps:
         pprint(indexer.get_timestamped_audio())
-    pprint(list(indexer.search(word)))
+    pprint(indexer.search_all(word))
