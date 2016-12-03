@@ -505,14 +505,14 @@ class SimpleAudioIndexer(object):
                 audio_json['results'][i]['alternatives'][0]['timestamps']
                 for i in xrange(len(audio_json['results']))
             ]
-        except KeyError as e:
-            print e
+            return [
+                [word[0], float(word[1]), float(word[2])]
+                for sentence_block in timestamps_of_sentences
+                for word in sentence_block
+            ]
+        except KeyError:
+            print audio_json
             print "The resulting request from IBM Watson was not intelligible."
-        return [
-            [word[0], float(word[1]), float(word[2])]
-            for sentence_block in timestamps_of_sentences
-            for word in sentence_block
-        ]
 
     def get_timestamped_audio(self):
         """
