@@ -29,7 +29,8 @@ import re
 import requests
 import subprocess
 
-needed_directories = ["filtered", "staging"]
+needed_directories = {"filtered", "staging"}
+audio_formats = {"wav", "mp3", "ogg", "flac"}
 
 
 class SimpleAudioIndexer(object):
@@ -74,6 +75,9 @@ class SimpleAudioIndexer(object):
     _read_audio(basename)
         A method that'll be called from the method `index_audio`. This method
         primarily validates/converts and reads the audio file(s)
+    list_audio_files(sub_dir, only_wav)
+        Returns a list of audiofiles in a subdir or the self.src_dir whose
+        formats are one of `audio_formats`
     get_audio_channels(abs_path_audio)
     get_audio_sample_rate(abs_path_audio)
     get_audio_sample_bit(abs_path_audio)
@@ -178,7 +182,7 @@ class SimpleAudioIndexer(object):
         # Converts the audio if the format is not `wav`. It's better to read the
         # format from filename and not the audio header because more often than
         # not, they are corrupted.
-        if basename.split('.')[-1] in ["mp3", "ogg", "flac"]:
+        if basename.split('.')[-1] in (audio_formats - {"wav"}):
             converted_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
             if self.verbose:
                 print "{} is not wav. Converting to {}".format(
@@ -215,7 +219,7 @@ class SimpleAudioIndexer(object):
 
         # Reading Section
         audio_binaries = list()
-        for audio_filename in os.listdir(str(self.src_dir) + "/staging/"):
+        for audio_filename in self.list_audio_files(sub_dir="staging"):
             if staging_pattern.match(audio_filename) is not None:
                 with open(
                     "{}/staging/{}".format(
@@ -225,6 +229,30 @@ class SimpleAudioIndexer(object):
                     audio_binaries.append(f.read())
 
         self.__audio[str(name)] += audio_binaries
+
+    def list_audio_files(self, sub_dir="", only_wav=True):
+        """
+        Parameters
+        ----------
+        sub_dir         one of `needed_directories`
+        only_wav        bool
+
+        Returns
+        -------
+        audio_files     [str]
+                        A list whose elements are basenames of the present
+                        audiofiles whose format is in `audio_formats`
+        """
+        audio_files = list()
+        for possibly_audio_file in os.listdir("{}/{}".format(self.src_dir,
+                                                             sub_dir)):
+            file_format = ''.join(possibly_audio_file.split('.')[-1])
+            if file_format in audio_formats:
+                if not only_wav:
+                    audio_files.append(possibly_audio_file)
+                elif only_wav and (file_format == "wav"):
+                    audio_files.append(possibly_audio_file)
+        return audio_files
 
     def get_audio_channels(self, abs_path_audio):
         """
@@ -454,16 +482,14 @@ class SimpleAudioIndexer(object):
         if keywords_threshold is not None:
             params['keywords_threshold'] = keywords_threshold
 
-        for audio_basename in os.listdir("{}".format(self.src_dir)):
+        for audio_basename in self.list_audio_files(only_wav=False):
             audio_name = ''.join(audio_basename.split('.')[:-1])
-            if audio_basename not in needed_directories:
-                if name is not None and audio_name != name:
-                    continue
-                self._read_audio(audio_basename)
-                if name is not None and audio_name == name:
-                    break
-        for staging_audio_name in os.listdir("{}/staging".format(
-          self.src_dir)):
+            if name is not None and audio_name != name:
+                continue
+            self._read_audio(audio_basename)
+            if name is not None and audio_name == name:
+                break
+        for staging_audio_name in self.list_audio_files(sub_dir="staging"):
             original_audio_name = ''.join(
                 staging_audio_name.split('.')[:-1]
             )[:-3]
@@ -542,7 +568,7 @@ class SimpleAudioIndexer(object):
         -------
         unified_timestamp   {str: [[str, float, float]]}
         """
-        staged_files = os.listdir("{}/staging".format(self.src_dir))
+        staged_files = self.list_audio_files(sub_dir="staging")
         unified_timestamps = dict()
         for timestamp_basename in self.__timestamps:
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
