@@ -9,6 +9,7 @@ Index and search through an audio for words or phrases using Watson Speech API
 - `Usage <#usage>`_
 - `Disclaimer <#disclaimer>`_
 - `Nice to implement in the future <#nice-to-implement-in-the-future>`_
+- `Thanks <#thanks>`_
 
 Description
 ------------
@@ -80,3 +81,9 @@ Nice to implement in the future
 - Uploading in parallel
 - More control structures for searching (Typos, phoneme based approximation of words using CMU_DICT or NLTK, tolerating missing words etc.)
 - Searching for an unintelligible audio within the audio files. Possibly by cross correlation or something similar.
+
+Thanks
+------
+Many thanks to the following GitHub users for contributing code and/or ideas:
+
+- `ParhamP <https://github.com/ParhamP>`_
