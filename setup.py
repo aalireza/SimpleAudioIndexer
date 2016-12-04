@@ -49,7 +49,7 @@ setup(
     keywords=["audio", "indexing", "search", "ibm", "watson"],
     entry_points={
           'console_scripts': [
-              'sai = SimpleAudioIndexer:__main__.py',
+              'sai = SimpleAudioIndexer.__main__:Main',
           ],
       },
 )

@@ -3,10 +3,6 @@ import argparse
 import os
 import sys
 
-sys.path.append(os.path.dirname(__file__))
-
-from SimpleAudioIndexer import SimpleAudioIndexer
-
 
 def argument_handler():
     parser = argparse.ArgumentParser()
@@ -42,15 +38,23 @@ def argument_handler():
             args.save_model, args.load_model)
 
 
-(username, password, src_dir, word, show_timestamps, model,
-    verbose, save_model, load_model) = argument_handler()
-indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
-if load_model:
-    indexer.load_indexed_audio(load_model)
-elif not load_model:
-    indexer.index_audio(model=model)
-    if save_model:
-        indexer.save_indexed_audio(save_model)
-if show_timestamps:
-    pprint(indexer.get_timestamped_audio())
-pprint(indexer.search_all(word))
+def Main():
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+    from SimpleAudioIndexer import SimpleAudioIndexer
+
+    (username, password, src_dir, word, show_timestamps, model,
+        verbose, save_model, load_model) = argument_handler()
+    indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
+    if load_model:
+        indexer.load_indexed_audio(load_model)
+    else:
+        indexer.index_audio(model=model)
+        if save_model:
+            indexer.save_indexed_audio(save_model)
+    if show_timestamps:
+        pprint(indexer.get_timestamped_audio())
+    pprint(indexer.search_all(word))
+
+
+if __name__ == '__main__':
+    Main()
