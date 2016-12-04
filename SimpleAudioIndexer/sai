@@ -585,9 +585,11 @@ class SimpleAudioIndexer(object):
         for timestamp_basename in self.__timestamps:
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
             if type(self.__timestamps[timestamp_basename][0][0]) is list:
-                staged_splitted_file_basenames = filter(
-                    lambda x: timestamp_name in x,
-                    staged_files)
+                staged_splitted_file_basenames = list(
+                    filter(
+                        lambda x: timestamp_name in x, staged_files
+                    )
+                )
                 staged_splitted_file_basenames.sort()
                 unified_timestamp = list()
                 seconds_passed = 0
@@ -653,11 +655,14 @@ class SimpleAudioIndexer(object):
                          the last element is the ending second of `query`
 
         """
-        word_list = filter(
-            lambda element: element is not None,
-            ''.join(
-                filter(lambda char: char in (ascii_letters + " "), list(query))
-            ).split(" ")
+        word_list = list(
+            filter(
+                lambda element: element is not None,
+                ''.join(
+                    filter(
+                        lambda char: char in (ascii_letters + " "), list(query))
+                ).split(" ")
+            )
         )
         timestamps = self.get_timestamped_audio()
         for audio_filename in timestamps:
@@ -789,8 +794,6 @@ def argument_handler():
 
 
 if __name__ == '__main__':
-    import sys
-    print(sys.version)
     (username, password, src_dir, word, show_timestamps, model,
      verbose) = argument_handler()
     indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
