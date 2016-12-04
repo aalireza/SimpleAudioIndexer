@@ -10,6 +10,7 @@ from SimpleAudioIndexer import SimpleAudioIndexer
 
 def argument_handler():
     parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
     parser.add_argument("-u", "--username", help="IBM Watson API Username",
                         type=str, required=True)
     parser.add_argument("-p", "--password", help="IBM Watson API Password",
@@ -29,15 +30,27 @@ def argument_handler():
                         default="en-US_BroadbandModel")
     parser.add_argument("-v", "--verbose", help="print stage of the program",
                         action='store_true')
+    group.add_argument("-f", "--save_model",
+                       help="abs path to the file wich will contain the model",
+                       type=str)
+    group.add_argument("-g", "--load_model",
+                       help="abs path to the file which contains the model",
+                       type=str)
     args = parser.parse_args()
     return (args.username, args.password, args.src_dir, args.search,
-            args.show_timestamps, args.model, args.verbose)
+            args.show_timestamps, args.model, args.verbose,
+            args.save_model, args.load_model)
 
 
 (username, password, src_dir, word, show_timestamps, model,
-    verbose) = argument_handler()
+    verbose, save_model, load_model) = argument_handler()
 indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
-indexer.index_audio(model=model)
+if load_model:
+    indexer.load_indexed_audio(load_model)
+elif not load_model:
+    indexer.index_audio(model=model)
+    if save_model:
+        indexer.save_indexed_audio(save_model)
 if show_timestamps:
     pprint(indexer.get_timestamped_audio())
 pprint(indexer.search_all(word))
