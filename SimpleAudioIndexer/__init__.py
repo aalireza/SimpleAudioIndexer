@@ -102,8 +102,8 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search(query, part_of_bigger_word, timing_error)
-    search_all(queries, part_of_bigger_word, timing_error)
+    search(query, audio_basename, part_of_bigger_word, timing_error)
+    search_all(queries, audio_basename, part_of_bigger_word, timing_error)
         Returns a dictionary of all results of all of the queries for all of the
         audio files.
     seconds_to_HHMMSS(seconds)
@@ -622,7 +622,8 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
-    def search(self, query, part_of_bigger_word=False, timing_error=0.1):
+    def search(self, query, audio_basename=None, part_of_bigger_word=False,
+               timing_error=0.1):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -632,6 +633,8 @@ class SimpleAudioIndexer(object):
         query          str
                         A string that'll be searched. It'll be splitted on
                         spaces and then each word gets sequentially searched
+        audio_basename str
+                        Search only within the given audio_basename
         part_of_bigger_word     bool
                                 `True` if it's not needed for the exact word be
                                 detected and larger strings that contain the
@@ -665,7 +668,8 @@ class SimpleAudioIndexer(object):
             )
         )
         timestamps = self.get_timestamped_audio()
-        for audio_filename in timestamps:
+        for audio_filename in (timestamps.keys() * (audio_basename is None) +
+                               [audio_basename] * (audio_basename is not None)):
             result = list()
             for word_block in timestamps[audio_filename]:
                 if ((part_of_bigger_word and
@@ -688,7 +692,8 @@ class SimpleAudioIndexer(object):
                     else:
                         continue
 
-    def search_all(self, queries, part_of_bigger_word=False, timing_error=0.1):
+    def search_all(self, queries, audio_basename=None,
+                   part_of_bigger_word=False, timing_error=0.1):
         """
         Returns a dictionary of all results of all of the queries for all of the
         audio files.
@@ -699,6 +704,8 @@ class SimpleAudioIndexer(object):
                         A list of the strings that'll be searched. If type of
                         queries is `str`, it'll be insterted into a list within
                         the body of the method.
+        audio_basename str
+                        Search only within the given audio_basename
         part_of_bigger_word     bool
                                 `True` if it's not needed for the exact word be
                                 detected and larger strings that contain the
@@ -741,7 +748,8 @@ class SimpleAudioIndexer(object):
             queries = [queries]
         search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
         for query in queries:
-            search_gen = self.search(query, part_of_bigger_word, timing_error)
+            search_gen = self.search(query, audio_basename, part_of_bigger_word,
+                                     timing_error)
             for search_result in search_gen:
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
