@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from __future__ import absolute_import, division, print_function
 from ast import literal_eval
 from collections import defaultdict
 from distutils.spawn import find_executable
@@ -192,20 +193,20 @@ class SimpleAudioIndexer(object):
         if basename.split('.')[-1] in (audio_formats - {"wav"}):
             converted_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
             if self.verbose:
-                print "{} is not wav. Converting to {}".format(
-                    basename, converted_abs_path)
+                print("{} is not wav. Converting to {}".format(
+                    basename, converted_abs_path))
             subprocess.Popen("{} -i {} -acodec pcm_u8 -ar 44100 {}".format(
                         self.__ffmpeg, name_abs_path, converted_abs_path),
-                    shell=True).communicate()
+                    shell=True, universal_newlines=True).communicate()
         else:
             # May cause problems if wav is not less than 9 channels.
             if self.verbose:
-                print "{} is wav. Copying to {}/filtered".format(name,
-                                                                 self.src_dir)
+                print("{} is wav. Copying to {}/filtered".format(name,
+                                                                 self.src_dir))
             subprocess.Popen(("cp {}/{}.wav " +
                              "{}/filtered/{}.wav").format(
                                  self.src_dir, name, self.src_dir, name),
-                             shell=True).communicate()
+                             shell=True, universal_newlines=True).communicate()
 
         # Checks the file size. It's better to use 95% of the allocated size per
         # file since the upper limit is not always respected.
@@ -213,16 +214,16 @@ class SimpleAudioIndexer(object):
             self.src_dir, name))
         if total_size >= self.__api_limit_bytes:
             if self.verbose:
-                print "{}'s size exceeds API limit ({}). Splitting...".format(
-                    name, self.__api_limit_bytes)
+                print("{}'s size exceeds API limit ({}). Splitting...".format(
+                    name, self.__api_limit_bytes))
             self.split_audio_by_size(name, self.__api_limit_bytes * 95 / 100)
         else:
             if self.verbose:
-                print "{}'s size is fine. Moving to staging...'".format(name)
+                print("{}'s size is fine. Moving to staging...'".format(name))
             subprocess.Popen(("mv {}/filtered/{}.wav " +
                              "{}/staging/{}000.wav").format(
                                  self.src_dir, name, self.src_dir, name),
-                             shell=True).communicate()
+                             shell=True, universal_newlines=True).communicate()
 
         # Reading Section
         audio_binaries = list()
@@ -232,7 +233,7 @@ class SimpleAudioIndexer(object):
                     "{}/staging/{}".format(
                         self.src_dir, audio_filename), "rb") as f:
                     if self.verbose:
-                        print "Reading {}...".format(audio_filename)
+                        print("Reading {}...".format(audio_filename))
                     audio_binaries.append(f.read())
 
         self.__audio[str(name)] += audio_binaries
@@ -274,7 +275,8 @@ class SimpleAudioIndexer(object):
         channel_num = int(
             subprocess.check_output(
                 ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
-                 ).format(abs_path_audio, "Channels"), shell=True).rstrip()
+                 ).format(abs_path_audio, "Channels"),
+                shell=True, universal_newlines=True).rstrip()
         )
         return channel_num
 
@@ -291,7 +293,8 @@ class SimpleAudioIndexer(object):
         sample_rate = int(
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
-                ).format(abs_path_audio, "Sample Rate"), shell=True).rstrip()
+                ).format(abs_path_audio, "Sample Rate"),
+               shell=True, universal_newlines=True).rstrip()
         )
         return sample_rate
 
@@ -309,7 +312,7 @@ class SimpleAudioIndexer(object):
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
                 """grep -oh "^[^-]*" """).format(abs_path_audio, "Precision"),
-               shell=True).rstrip()
+               shell=True, universal_newlines=True).rstrip()
         )
         return sample_bit
 
@@ -326,7 +329,8 @@ class SimpleAudioIndexer(object):
         HHMMSS_duration = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
              """grep -oh "^[^=]*" """).format(
-                abs_path_audio, "Duration"), shell=True).rstrip()
+                abs_path_audio, "Duration"),
+            shell=True, universal_newlines=True).rstrip()
         total_seconds = sum(
             [float(x) * 60 ** (2 - i)
              for i, x in enumerate(HHMMSS_duration.split(":"))]
@@ -345,7 +349,8 @@ class SimpleAudioIndexer(object):
         """
         bit_Rate_formatted = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""").format(
-                abs_path_audio, "Bit Rate"), shell=True).rstrip()
+                abs_path_audio, "Bit Rate"),
+            shell=True, universal_newlines=True).rstrip()
         bit_rate = (
            lambda x:
            int(x[:-1]) * 10 ** 3 if x[-1].lower() == "k" else
@@ -368,7 +373,7 @@ class SimpleAudioIndexer(object):
                           "{}/staging/{}%03d.wav").format(
                              self.__ffmpeg, self.src_dir, name,
                              duration_seconds, self.src_dir, name),
-                         shell=True).communicate()
+                         shell=True, universal_newlines=True).communicate()
 
     def split_audio_by_size(self, name, chunk_size):
         """
@@ -515,7 +520,7 @@ class SimpleAudioIndexer(object):
                 data=self.__audio[original_audio_name][staging_number],
                 params=params)
             if self.verbose:
-                print "Indexing {}...".format(original_audio_name)
+                print("Indexing {}...".format(original_audio_name))
             self.__timestamps[original_audio_name + ".wav"].append(
                 self._timestamp_extractor(json.loads(response.text))
             )
@@ -539,7 +544,7 @@ class SimpleAudioIndexer(object):
         try:
             timestamps_of_sentences = [
                 audio_json['results'][i]['alternatives'][0]['timestamps']
-                for i in xrange(len(audio_json['results']))
+                for i in range(len(audio_json['results']))
             ]
             return [
                 [word[0], float(word[1]), float(word[2])]
@@ -547,8 +552,8 @@ class SimpleAudioIndexer(object):
                 for word in sentence_block
             ]
         except KeyError:
-            print audio_json
-            print "The resulting request from IBM Watson was not intelligible."
+            pprint(audio_json)
+            print("The resulting request from IBM Watson was not intelligible.")
 
     def get_timestamped_audio(self):
         """
@@ -784,6 +789,8 @@ def argument_handler():
 
 
 if __name__ == '__main__':
+    import sys
+    print(sys.version)
     (username, password, src_dir, word, show_timestamps, model,
      verbose) = argument_handler()
     indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
