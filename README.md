@@ -25,7 +25,9 @@ This library is not meant to work with Windows.
 
 ## Usage
 
-Below would be a usage example of the library, provided that USERNAME and PASSWORD are the username and password of one's IBM Watson Speech API account and SRC_DIR is the absolute path to the directory in which the audio files are located.
+Assuming USERNAME and PASSWORD are the username and password of one's IBM Watson Speech API account and SRC_DIR is the absolute path to the directory in which the audio files are located, usage examples would be provided below.
+
+### As a library
 
 ```python
 from SimpleAudioIndexer import SimpleAudioIndexer as sai
@@ -45,9 +47,12 @@ print(indexer.search_all(["Some word or phrase", "another word or phrase"]))
 
 There are quite a few more methods and control structures implemented. For more information, look at the source code and see the documentation there. 
 
-It's also possible to make a search straight from the command line. For that you could do:
+### As an executable command
 `sai -u USERNAME -p PASSWORD -d SRC_DIR -s "SOME WORD OR PHRASE"`
+
 It's also possible to add `-v` at the end to see the progress and `-t` to see the all of the indexed words per audio file.
+
+---
 
 **Remark:** The audio files are supposed to be wav and less than 9 channels. We'd break a large audio file into 95% of this limit and upload each sequentially and then search and do a time correction for the founded results. It's possible to change this limit by hand upon initialization of the indexer. (Using the `api_limit_bytes` attribute. For more information, see the source code and read the doc there.)
 
