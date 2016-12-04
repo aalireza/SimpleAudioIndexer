@@ -1,7 +1,7 @@
 [Program]
 Name= SimpleAudioIndexer
-VERSION= 0.4.0
-TAG=0.4.0
+VERSION= 0.4.1
+TAG=0.4.1
 Description= Index and search through an audio for words or phrases using Watson Speech API
 License= Apache v2.0
 URL= https://github.com/aalireza/SimbpleAudioIndexer
