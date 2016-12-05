@@ -152,10 +152,11 @@ class SimpleAudioIndexer(object):
         for directory in needed_directories:
             if not os.path.exists("{}/{}".format(self.src_dir, directory)):
                 os.mkdir("{}/{}".format(self.src_dir, directory))
+        return self
 
-    def __exit__(self):
+    def __exit__(self, *args):
         for directory in needed_directories:
-            rmtree(directory)
+            rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_username(self):
         return self.username
