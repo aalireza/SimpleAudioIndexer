@@ -73,7 +73,7 @@ It's also possible to add `-v` at the end to see the progress and `-t` to see th
 Disclaimer
 ----------
 - By using this program you'd be uploading your files to IBM which means you're not supposed to necessarily upload everything if you have privacy concerns, and also, It won't be free.
-- This project was made to improve the results of `Speech Hacker <https://github.com/ParhamP/Speech-Hacker)>`_. Among the available audio indexers (assuming one is only trying to index speech), the IBM's api had the best performance by a very long shot yet nothing around that api existed to make searching easier.
+- This project was made to improve the results of `Speech Hacker <https://github.com/ParhamP/Speech-Hacker>`_. Among the available audio indexers (assuming one is only trying to index speech), the IBM's api had the best performance by a very long shot yet nothing around that api existed to make searching easier.
 
 
 Nice to implement in the future
