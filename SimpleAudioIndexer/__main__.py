@@ -44,16 +44,17 @@ def Main():
 
     (username, password, src_dir, word, show_timestamps, model,
         verbose, save_model, load_model) = argument_handler()
-    indexer = SimpleAudioIndexer(username, password, src_dir, verbose=verbose)
-    if load_model:
-        indexer.load_indexed_audio(load_model)
-    else:
-        indexer.index_audio(model=model)
-        if save_model:
-            indexer.save_indexed_audio(save_model)
-    if show_timestamps:
-        pprint(indexer.get_timestamped_audio())
-    pprint(indexer.search_all(word))
+    with SimpleAudioIndexer(username, password,
+                            src_dir, verbose=verbose) as indexer:
+        if load_model:
+            indexer.load_indexed_audio(load_model)
+        else:
+            indexer.index_audio(model=model)
+            if save_model:
+                indexer.save_indexed_audio(save_model)
+        if show_timestamps:
+            pprint(indexer.get_timestamped_audio())
+        pprint(indexer.search_all(word))
 
 
 if __name__ == '__main__':
