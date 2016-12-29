@@ -197,10 +197,10 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print("{} is wav. Copying to {}/filtered".format(name,
                                                                  self.src_dir))
-            subprocess.Popen(("cp {}/{}.wav " +
-                             "{}/filtered/{}.wav").format(
-                                 self.src_dir, name, self.src_dir, name),
-                             shell=True, universal_newlines=True).communicate()
+            subprocess.Popen(["cp",
+                                "{}/{}.wav".format(self.src_dir, name),
+                                "{}/filtered/{}.wav".format(self.src_dir, name)],
+                             universal_newlines=True).communicate()
 
         # Checks the file size. It's better to use 95% of the allocated size per
         # file since the upper limit is not always respected.
