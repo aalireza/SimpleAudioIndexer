@@ -55,12 +55,6 @@ class SimpleAudioIndexer(object):
     __api_limit_bytes:  int
                         It holds the API limitation of Watson speech api http
                         sessionless which is 100Mbs.
-    __audio:            defaultdict(list)
-                        It holds the binary of the audio files that have been
-                        read in chunks of 100MBs or less. The key is the audio
-                        base name e.g. `audio.wav` and the value is list whose
-                        elements are ordered blocks of binary with 95% of the
-                        API threshold size.
     __timestamps:       defaultdict(list)
                         It holds the timestamps of the audio in a format similar
                         to above
@@ -134,7 +128,6 @@ class SimpleAudioIndexer(object):
         self.verbose = verbose
         self.src_dir = src_dir
         self.__api_limit_bytes = api_limit_bytes
-        self.__audio = defaultdict(list)
         self.__timestamps = defaultdict(list)
         # Recently no ffmpeg for Ubuntu or Debian. All the used commands here
         # are compatible for avconv so either one would work.
@@ -204,10 +197,10 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print("{} is wav. Copying to {}/filtered".format(name,
                                                                  self.src_dir))
-            subprocess.Popen(("cp {}/{}.wav " +
-                             "{}/filtered/{}.wav").format(
-                                 self.src_dir, name, self.src_dir, name),
-                             shell=True, universal_newlines=True).communicate()
+            subprocess.Popen(["cp",
+                                "{}/{}.wav".format(self.src_dir, name),
+                                "{}/filtered/{}.wav".format(self.src_dir, name)],
+                             universal_newlines=True).communicate()
 
         # Checks the file size. It's better to use 95% of the allocated size per
         # file since the upper limit is not always respected.
@@ -225,19 +218,6 @@ class SimpleAudioIndexer(object):
                              "{}/staging/{}000.wav").format(
                                  self.src_dir, name, self.src_dir, name),
                              shell=True, universal_newlines=True).communicate()
-
-        # Reading Section
-        audio_binaries = list()
-        for audio_filename in self.list_audio_files(sub_dir="staging"):
-            if staging_pattern.match(audio_filename) is not None:
-                with open(
-                    "{}/staging/{}".format(
-                        self.src_dir, audio_filename), "rb") as f:
-                    if self.verbose:
-                        print("Reading {}...".format(audio_filename))
-                    audio_binaries.append(f.read())
-
-        self.__audio[str(name)] += audio_binaries
 
     def list_audio_files(self, sub_dir="", only_wav=True):
         """
@@ -506,27 +486,27 @@ class SimpleAudioIndexer(object):
             original_audio_name = ''.join(
                 staging_audio_name.split('.')[:-1]
             )[:-3]
-            staging_number = int(
-                ''.join(
-                    staging_audio_name.split('.')[0]
-                )[-3:]
-            )
             if name is not None and original_audio_name != name:
                 continue
-            response = requests.post(
-                url=("https://stream.watsonplatform.net/" +
-                     "speech-to-text/api/v1/recognize"),
-                auth=(self.get_username(), self.get_password()),
-                headers={'content-type': 'audio/wav'},
-                data=self.__audio[original_audio_name][staging_number],
-                params=params)
-            if self.verbose:
-                print("Indexing {}...".format(original_audio_name))
-            self.__timestamps[original_audio_name + ".wav"].append(
-                self._timestamp_extractor(json.loads(response.text))
-            )
-            if name is not None and original_audio_name == name:
-                break
+            with open(
+                "{}/staging/{}".format(
+                    self.src_dir, staging_audio_name), "rb") as f:
+                if self.verbose:
+                    print("Reading {}...".format(staging_audio_name))
+                response = requests.post(
+                    url=("https://stream.watsonplatform.net/" +
+                         "speech-to-text/api/v1/recognize"),
+                    auth=(self.get_username(), self.get_password()),
+                    headers={'content-type': 'audio/wav'},
+                    data=f.read(),
+                    params=params)
+                if self.verbose:
+                    print("Indexing {}...".format(original_audio_name))
+                self.__timestamps[original_audio_name + ".wav"].append(
+                    self._timestamp_extractor(json.loads(response.text))
+                )
+                if name is not None and original_audio_name == name:
+                    break
 
     def _timestamp_extractor(self, audio_json):
         """
