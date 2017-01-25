@@ -87,3 +87,4 @@ Thanks
 Many thanks to the following GitHub users for contributing code and/or ideas:
 
 - `ParhamP <https://github.com/ParhamP>`_
+- `opyate <https://github.com/opyate>`_
