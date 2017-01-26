@@ -21,12 +21,12 @@ from __future__ import absolute_import, division, print_function
 from ast import literal_eval
 from collections import defaultdict
 from distutils.spawn import find_executable
+from functools import reduce
 from math import floor
 from shutil import rmtree
 from string import ascii_letters
 import json
 import os
-import re
 import requests
 import subprocess
 
@@ -56,8 +56,8 @@ class SimpleAudioIndexer(object):
                         It holds the API limitation of Watson speech api http
                         sessionless which is 100Mbs.
     __timestamps:       defaultdict(list)
-                        It holds the timestamps of the audio in a format similar
-                        to above
+                        It holds the timestamps of the audio in a format
+                        similar to above
     __ffmpeg:           str
                         Looks to see if ffmpeg is installed, if not, searches
                         for avconv.
@@ -98,8 +98,8 @@ class SimpleAudioIndexer(object):
     load_indexed_audio(indexed_audio_file_abs_path)
     search(query, audio_basename, part_of_bigger_word, timing_error)
     search_all(queries, audio_basename, part_of_bigger_word, timing_error)
-        Returns a dictionary of all results of all of the queries for all of the
-        audio files.
+        Returns a dictionary of all results of all of the queries for all of
+        the audio files.
     seconds_to_HHMMSS(seconds)
         Retuns a string which is the hour, minute, second(milli) representation
         of the intput `seconds`
@@ -113,9 +113,10 @@ class SimpleAudioIndexer(object):
         username:           str
         password:           str
         src_dir             str
-                            Absolute path to the source directory of audio files
-                            such that the absolute path of the audio that'll be
-                            indexed would be `src_dir/audio_file.wav`
+                            Absolute path to the source directory of audio
+                            files such that the absolute path of the audio
+                            that'll be indexed would be
+                            `src_dir/audio_file.wav`
         api_limit_bytes:    int
         verbose:            Bool
 
@@ -168,8 +169,8 @@ class SimpleAudioIndexer(object):
         First checks if audio needs converting and then puts the properly
         formatted audio in `filtered` directory. Then looks to see if the file
         size is less than the threshold and then splits it and puts them in
-        `staging` directory while appending \d{3} to the end of the filename and
-        then reads them.
+        `staging` directory while appending \d{3} to the end of the filename
+        and then reads them.
 
         Parameters
         ----------
@@ -179,13 +180,13 @@ class SimpleAudioIndexer(object):
         """
         name = ''.join(basename.split('.')[0])
         name_abs_path = "{}/{}".format(self.src_dir, basename)
-        staging_pattern = re.compile(str(name) + "\d{3}.wav")
 
-        # Converts the audio if the format is not `wav`. It's better to read the
-        # format from filename and not the audio header because more often than
-        # not, they are corrupted.
+        # Converts the audio if the format is not `wav`. It's better to read
+        # the format from filename and not the audio header because more often
+        # than not, they are corrupted.
         if basename.split('.')[-1] in (audio_formats - {"wav"}):
-            converted_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
+            converted_abs_path = "{}/filtered/{}.wav".format(
+                self.src_dir, name)
             if self.verbose:
                 print("{} is not wav. Converting to {}".format(
                     basename, converted_abs_path))
@@ -197,13 +198,13 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print("{} is wav. Copying to {}/filtered".format(name,
                                                                  self.src_dir))
-            subprocess.Popen(["cp",
-                                "{}/{}.wav".format(self.src_dir, name),
-                                "{}/filtered/{}.wav".format(self.src_dir, name)],
-                             universal_newlines=True).communicate()
+            subprocess.Popen([
+                "cp", "{}/{}.wav".format(self.src_dir, name),
+                "{}/filtered/{}.wav".format(self.src_dir, name)
+            ], universal_newlines=True).communicate()
 
-        # Checks the file size. It's better to use 95% of the allocated size per
-        # file since the upper limit is not always respected.
+        # Checks the file size. It's better to use 95% of the allocated size
+        # per file since the upper limit is not always respected.
         total_size = os.path.getsize("{}/filtered/{}.wav".format(
             self.src_dir, name))
         if total_size >= self.__api_limit_bytes:
@@ -329,7 +330,7 @@ class SimpleAudioIndexer(object):
         bit_rate            int
         """
         bit_Rate_formatted = subprocess.check_output(
-            ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""").format(
+            """sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""".format(
                 abs_path_audio, "Bit Rate"),
             shell=True, universal_newlines=True).rstrip()
         bit_rate = (
@@ -349,17 +350,17 @@ class SimpleAudioIndexer(object):
                             name of `audiofile.wav` is `audiofile`
         duration_seconds    int
         """
-        subprocess.Popen(("{} -i {}/filtered/{}.wav -c copy -map 0 " +
-                          "-segment_time {} -f segment " +
-                          "{}/staging/{}%03d.wav").format(
-                             self.__ffmpeg, self.src_dir, name,
-                             duration_seconds, self.src_dir, name),
-                         shell=True, universal_newlines=True).communicate()
+        subprocess.Popen(
+            ("{} -i {}/filtered/{}.wav -c copy -map 0 -segment_time {} -f " +
+             "segment {}/staging/{}%03d.wav").format(
+                 self.__ffmpeg, self.src_dir, name,
+                 duration_seconds, self.src_dir, name),
+            shell=True, universal_newlines=True).communicate()
 
     def split_audio_by_size(self, name, chunk_size):
         """
-        Calculates the duration of the name.wav in order for all splits have the
-        size of chunk_size except possibly the last split (which will be
+        Calculates the duration of the name.wav in order for all splits have
+        the size of chunk_size except possibly the last split (which will be
         smaller) and then passes the duration to `split_audio_by_duration`
 
         Parameters
@@ -385,8 +386,6 @@ class SimpleAudioIndexer(object):
                     profanity_filter_for_US_results=False):
         """
         Implements a search-suitable interface for Watson speech API.
-
-
 
         For more information visit:
             https://www.ibm.com/watson/developercloud/speech-to-text/api/v1/
@@ -428,20 +427,21 @@ class SimpleAudioIndexer(object):
         word_alternatives_threshold     numeric
                                         A confidence value that is the lower
                                         bound for identifying a hypothesis as a
-                                        possible word alternative (also known as
-                                        "Confusion Networks"). An alternative
-                                        word is considered if its confidence is
-                                        greater than or equal to the threshold.
-                                        Specify a probability between 0 and 1
-                                        inclusive. No alternative words are
-                                        computed if you omit the parameter or
-                                        specify the default value (null).
+                                        possible word alternative (also known
+                                        as "Confusion Networks"). An
+                                        alternative word is considered if its
+                                        confidence is greater than or equal to
+                                        the threshold. Specify a probability
+                                        between 0 and 1 inclusive. No
+                                        alternative words are computed if you
+                                        omit the parameter or specify the
+                                        default value (null).
         keywords    [str]
-                    A list of keywords to spot in the audio. Each keyword string
-                    can include one or more tokens. Keywords are spotted only in
-                    the final hypothesis, not in interim results. Omit the
-                    parameter or specify an empty array if you do not need to
-                    spot keywords.
+                    A list of keywords to spot in the audio. Each keyword
+                    string can include one or more tokens. Keywords are
+                    spotted only in the final hypothesis, not in interim
+                    results. Omit the parameter or specify an empty array if
+                    you do not need to spot keywords.
         keywords_threshold      numeric
                                 A confidence value that is the lower bound for
                                 spotting a keyword. A word is considered to
@@ -534,7 +534,7 @@ class SimpleAudioIndexer(object):
             ]
         except KeyError:
             print(audio_json)
-            print("The resulting request from IBM Watson was not intelligible.")
+            print("The resulting request from Watson was unintelligible.")
 
     def get_timestamped_audio(self):
         """
@@ -623,8 +623,8 @@ class SimpleAudioIndexer(object):
         timing_error    float
                         Sometimes other words (almost always very small) would
                         be detected between the words of the `query`. This
-                        parameter defines the timing difference/tolerance of the
-                        search. By default it's 0.1, which means it'd be
+                        parameter defines the timing difference/tolerance of
+                        the search. By default it's 0.1, which means it'd be
                         acceptable if the next word of the `query` is found
                         before 0.1 seconds of the end of the previous word.
 
@@ -637,20 +637,21 @@ class SimpleAudioIndexer(object):
                          is the value of the "Result" key. The first element
                          of the tuple is the starting second of `query` and
                          the last element is the ending second of `query`
-
         """
         word_list = list(
             filter(
                 lambda element: element is not None,
                 ''.join(
                     filter(
-                        lambda char: char in (ascii_letters + " "), list(query))
+                        lambda char: char in (ascii_letters + " "),
+                        list(query))
                 ).split(" ")
             )
         )
         timestamps = self.get_timestamped_audio()
-        for audio_filename in (timestamps.keys() * (audio_basename is None) +
-                               [audio_basename] * (audio_basename is not None)):
+        for audio_filename in (
+                timestamps.keys() * (audio_basename is None) +
+                [audio_basename] * (audio_basename is not None)):
             result = list()
             for word_block in timestamps[audio_filename]:
                 if ((part_of_bigger_word and
@@ -676,8 +677,8 @@ class SimpleAudioIndexer(object):
     def search_all(self, queries, audio_basename=None,
                    part_of_bigger_word=False, timing_error=0.1):
         """
-        Returns a dictionary of all results of all of the queries for all of the
-        audio files.
+        Returns a dictionary of all results of all of the queries for all of
+        the audio files.
 
         Parameters
         ----------
@@ -695,10 +696,10 @@ class SimpleAudioIndexer(object):
                         Sometimes other words (almost always very small) would
                         be detected between the words of the elements of
                         `queries`. This parameter defines the timing
-                        difference/tolerance of the search. By default it's 0.1,
-                        which means it'd be acceptable if the next word of an
-                        element of `queries` is found before 0.1 seconds of the
-                        end of the previous word.
+                        difference/tolerance of the search. By default it's
+                        0.1 which means it'd be acceptable if the next word of
+                        an element of `queries` is found before 0.1 seconds of
+                        the end of the previous word.
 
         Returns
         -------
@@ -729,8 +730,8 @@ class SimpleAudioIndexer(object):
             queries = [queries]
         search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
         for query in queries:
-            search_gen = self.search(query, audio_basename, part_of_bigger_word,
-                                     timing_error)
+            search_gen = self.search(query, audio_basename,
+                                     part_of_bigger_word, timing_error)
             for search_result in search_gen:
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
