@@ -72,7 +72,7 @@ class SimpleAudioIndexer(object):
         primarily validates/converts and reads the audio file(s)
     list_audio_files(sub_dir, only_wav)
         Returns a list of audiofiles in a subdir or the self.src_dir whose
-        formats are one of `audio_formats`
+        formats are `wav`
     get_audio_channels(abs_path_audio)
     get_audio_sample_rate(abs_path_audio)
     get_audio_sample_bit(abs_path_audio)
@@ -202,28 +202,24 @@ class SimpleAudioIndexer(object):
                                  self.src_dir, name, self.src_dir, name),
                              shell=True, universal_newlines=True).communicate()
 
-    def list_audio_files(self, sub_dir="", only_wav=True):
+    def list_audio_files(self, sub_dir=""):
         """
         Parameters
         ----------
         sub_dir         one of `needed_directories`
-        only_wav        bool
 
         Returns
         -------
         audio_files     [str]
                         A list whose elements are basenames of the present
-                        audiofiles whose format is in `audio_formats`
+                        audiofiles whose formats are `wav`
         """
         audio_files = list()
         for possibly_audio_file in os.listdir("{}/{}".format(self.src_dir,
                                                              sub_dir)):
             file_format = ''.join(possibly_audio_file.split('.')[-1])
-            if file_format in audio_formats:
-                if not only_wav:
-                    audio_files.append(possibly_audio_file)
-                elif only_wav and (file_format == "wav"):
-                    audio_files.append(possibly_audio_file)
+            if file_format.lower() == "wav":
+                audio_files.append(possibly_audio_file)
         return audio_files
 
     def get_audio_channels(self, abs_path_audio):
