@@ -69,6 +69,9 @@ class SimpleAudioIndexer(object):
     set_password()
     _filtered_step(basename)
         Moves the audio to `filtered` dir if its format is `wav`
+    _staging_step(basename)
+        Splits the audio -if needed to be under api limit- and then moves it
+        to `staged` directory.
     _read_audio(basename)
         A method that'll be called from the method `index_audio`. This method
         primarily validates/splits and reads the audio file(s)
@@ -182,6 +185,34 @@ class SimpleAudioIndexer(object):
             subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
                               "{}/filtered/{}.wav".format(self.src_dir, name)],
                              universal_newlines=True).communicate()
+
+    def _staging_step(self, basename):
+        """
+        Checks the size of audio file, splits it if it's needed to manage api
+        limit and then moves to `staged` directory.
+        Parameters
+        ----------
+        basename    str
+                    A basename of `/home/random-guy/some-audio-file.wav` is
+                    `some-audio-file.wav`
+        """
+        name = ''.join(basename.split('.')[:-1])
+        # Checks the file size. It's better to use 95% of the allocated size
+        # per file since the upper limit is not always respected.
+        total_size = os.path.getsize("{}/filtered/{}.wav".format(
+            self.src_dir, name))
+        if total_size >= self.__api_limit_bytes:
+            if self.verbose:
+                print("{}'s size exceeds API limit ({}). Splitting...".format(
+                    name, self.__api_limit_bytes))
+            self.split_audio_by_size(name, self.__api_limit_bytes * 95 / 100)
+        else:
+            if self.verbose:
+                print("{}'s size is fine. Moving to staging...'".format(name))
+            subprocess.Popen(("mv {}/filtered/{}.wav " +
+                             "{}/staging/{}000.wav").format(
+                                 self.src_dir, name, self.src_dir, name),
+                             shell=True, universal_newlines=True).communicate()
 
     def _read_audio(self, basename):
         """
