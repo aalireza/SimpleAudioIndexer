@@ -32,7 +32,6 @@ import subprocess
 
 
 needed_directories = {"filtered", "staging"}
-audio_formats = {"wav", "mp3", "ogg", "flac"}
 
 
 class SimpleAudioIndexer(object):
@@ -179,29 +178,12 @@ class SimpleAudioIndexer(object):
                     `some-audio-file.wav`
         """
         name = ''.join(basename.split('.')[0])
-        name_abs_path = "{}/{}".format(self.src_dir, basename)
-
-        # Converts the audio if the format is not `wav`. It's better to read
-        # the format from filename and not the audio header because more often
-        # than not, they are corrupted.
-        if basename.split('.')[-1] in (audio_formats - {"wav"}):
-            converted_abs_path = "{}/filtered/{}.wav".format(
-                self.src_dir, name)
-            if self.verbose:
-                print("{} is not wav. Converting to {}".format(
-                    basename, converted_abs_path))
-            subprocess.Popen("{} -i {} -acodec pcm_u8 -ar 44100 {}".format(
-                        self.__ffmpeg, name_abs_path, converted_abs_path),
-                    shell=True, universal_newlines=True).communicate()
-        else:
-            # May cause problems if wav is not less than 9 channels.
-            if self.verbose:
-                print("{} is wav. Copying to {}/filtered".format(name,
-                                                                 self.src_dir))
-            subprocess.Popen([
-                "cp", "{}/{}.wav".format(self.src_dir, name),
-                "{}/filtered/{}.wav".format(self.src_dir, name)
-            ], universal_newlines=True).communicate()
+        # May cause problems if wav is not less than 9 channels.
+        if self.verbose:
+            print("Copying to {}/filtered".format(name, self.src_dir))
+        subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
+                          "{}/filtered/{}.wav".format(self.src_dir, name)],
+                         universal_newlines=True).communicate()
 
         # Checks the file size. It's better to use 95% of the allocated size
         # per file since the upper limit is not always respected.
