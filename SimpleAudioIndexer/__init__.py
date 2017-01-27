@@ -72,7 +72,7 @@ class SimpleAudioIndexer(object):
     _staging_step(basename)
         Splits the audio -if needed to be under api limit- and then moves it
         to `staged` directory.
-    _read_audio(basename)
+    _prepare_audio(basename)
         A method that'll be called from the method `index_audio`. This method
         primarily validates/splits and reads the audio file(s)
     list_audio_files(sub_dir, only_wav)
@@ -189,7 +189,8 @@ class SimpleAudioIndexer(object):
     def _staging_step(self, basename):
         """
         Checks the size of audio file, splits it if it's needed to manage api
-        limit and then moves to `staged` directory.
+        limit and then moves to `staged` directory while appending \d{3} to
+        the end of the filename.
         Parameters
         ----------
         basename    str
@@ -214,13 +215,9 @@ class SimpleAudioIndexer(object):
                                  self.src_dir, name, self.src_dir, name),
                              shell=True, universal_newlines=True).communicate()
 
-    def _read_audio(self, basename):
+    def _prepare_audio(self, basename):
         """
-        First checks if audio needs converting and then puts the properly
-        formatted audio in `filtered` directory. Then looks to see if the file
-        size is less than the threshold and then splits it and puts them in
-        `staging` directory while appending \d{3} to the end of the filename
-        and then reads them.
+        prepares and stages the audio file to be indexed.
 
         Parameters
         ----------
@@ -228,23 +225,8 @@ class SimpleAudioIndexer(object):
                     A basename of `/home/random-guy/some-audio-file.wav` is
                     `some-audio-file.wav`
         """
-        name = ''.join(basename.split('.')[:-1])
-        # Checks the file size. It's better to use 95% of the allocated size
-        # per file since the upper limit is not always respected.
-        total_size = os.path.getsize("{}/filtered/{}.wav".format(
-            self.src_dir, name))
-        if total_size >= self.__api_limit_bytes:
-            if self.verbose:
-                print("{}'s size exceeds API limit ({}). Splitting...".format(
-                    name, self.__api_limit_bytes))
-            self.split_audio_by_size(name, self.__api_limit_bytes * 95 / 100)
-        else:
-            if self.verbose:
-                print("{}'s size is fine. Moving to staging...'".format(name))
-            subprocess.Popen(("mv {}/filtered/{}.wav " +
-                             "{}/staging/{}000.wav").format(
-                                 self.src_dir, name, self.src_dir, name),
-                             shell=True, universal_newlines=True).communicate()
+        self._filtering_step(basename)
+        self._staging_step(basename)
 
     def list_audio_files(self, sub_dir=""):
         """
@@ -501,7 +483,7 @@ class SimpleAudioIndexer(object):
             audio_name = ''.join(audio_basename.split('.')[:-1])
             if name is not None and audio_name != name:
                 continue
-            self._read_audio(audio_basename)
+            self._prepare_audio(audio_basename)
             if name is not None and audio_name == name:
                 break
         for staging_audio_name in self.list_audio_files(sub_dir="staging"):
