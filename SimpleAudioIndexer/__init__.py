@@ -83,8 +83,8 @@ class SimpleAudioIndexer(object):
     get_audio_sample_bit(abs_path_audio)
     get_audio_duration_seconds(abs_path_audio)
     get_audio_bit_rate(abs_path_audio)
-    split_audio_by_duration(name, duration)
-    split_audio_by_size(name, size)
+    split_audio_by_duration(audio_abs_path, results_abs_path, duration_seconds)
+    split_audio_by_size(audio_abs_path, results_abs_path, chunk_size)
     index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
                 word_confidence=True, word_alternatives_threshold=0.9,
                 keywords=None, keywords_threshold=None,
@@ -206,7 +206,10 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print("{}'s size exceeds API limit ({}). Splitting...".format(
                     name, self.__api_limit_bytes))
-            self.split_audio_by_size(name, self.__api_limit_bytes * 95 / 100)
+            self.split_audio_by_size(
+                "{}/filtered/{}.wav".format(self.src_dir, name),
+                "{}/staged/{}%03.wav".format(self.src_dir, name),
+                self.__api_limit_bytes * 95 / 100)
         else:
             if self.verbose:
                 print("{}'s size is fine. Moving to staging...'".format(name))
@@ -346,22 +349,25 @@ class SimpleAudioIndexer(object):
         )(bit_Rate_formatted)
         return bit_rate
 
-    def split_audio_by_duration(self, name, duration_seconds):
+    def split_audio_by_duration(self, audio_abs_path,
+                                results_abs_path, duration_seconds):
         """
         Parameters
         ----------
-        name                str
-                            name of `audiofile.wav` is `audiofile`
+        audio_abs_path      str
+        results_abs_path    str
+                            A place for adding digits needs to be added prior
+                            the the format decleration i.e. name%03.wav
         duration_seconds    int
         """
         subprocess.Popen(
-            ("{} -i {}/filtered/{}.wav -c copy -map 0 -segment_time {} -f " +
-             "segment {}/staging/{}%03d.wav").format(
-                 self.__ffmpeg, self.src_dir, name,
-                 duration_seconds, self.src_dir, name),
+            "{} -i {} -c copy -map 0 -segment_time {} -f segment {}".format(
+                self.__ffmpeg, audio_abs_path, duration_seconds,
+                results_abs_path),
             shell=True, universal_newlines=True).communicate()
 
-    def split_audio_by_size(self, name, chunk_size):
+    def split_audio_by_size(self, audio_abs_path, results_abs_path,
+                            chunk_size):
         """
         Calculates the duration of the name.wav in order for all splits have
         the size of chunk_size except possibly the last split (which will be
@@ -369,19 +375,21 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        name                str
-                            name of `audiofile.wav` is `audiofile`
+        audio_abs_path      str
+        results_abs_path    str
+                            A place for adding digits needs to be added prior
+                            the the format decleration i.e. name%03.wav
         chunk_size          int
                             Should be in bytes
         """
-        audio_abs_path = "{}/filtered/{}.wav".format(self.src_dir, name)
         sample_rate = self.get_audio_sample_rate(audio_abs_path)
         sample_bit = self.get_audio_sample_bit(audio_abs_path)
         channel_num = self.get_audio_channels(audio_abs_path)
         duration = 8 * chunk_size / reduce(lambda x, y: int(x) * int(y),
                                            [sample_rate, sample_bit,
                                             channel_num])
-        self.split_audio_by_duration(name, duration)
+        self.split_audio_by_duration(audio_abs_path, results_abs_path,
+                                     duration)
 
     def index_audio(self, name=None, continuous=True,
                     model="en-US_BroadbandModel", word_confidence=True,
