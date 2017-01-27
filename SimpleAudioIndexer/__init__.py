@@ -67,9 +67,11 @@ class SimpleAudioIndexer(object):
     set_username()
     get_password()
     set_password()
+    _filtered_step(basename)
+        Moves the audio to `filtered` dir if its format is `wav`
     _read_audio(basename)
         A method that'll be called from the method `index_audio`. This method
-        primarily validates/converts and reads the audio file(s)
+        primarily validates/splits and reads the audio file(s)
     list_audio_files(sub_dir, only_wav)
         Returns a list of audiofiles in a subdir or the self.src_dir whose
         formats are `wav`
@@ -163,6 +165,24 @@ class SimpleAudioIndexer(object):
     def set_password(self, password):
         self.password = password
 
+    def _filtering_step(self, basename):
+        """
+        Moves the audio file if the format is `wav` to `filtered` directory.
+        Parameters
+        ----------
+        basename    str
+                    A basename of `/home/random-guy/some-audio-file.wav` is
+                    `some-audio-file.wav`
+        """
+        name = ''.join(basename.split('.')[:-1])
+        # May cause problems if wav is not less than 9 channels.
+        if basename.split('.')[-1] == "wav":
+            if self.verbose:
+                print("Copying to {}/filtered".format(name, self.src_dir))
+            subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
+                              "{}/filtered/{}.wav".format(self.src_dir, name)],
+                             universal_newlines=True).communicate()
+
     def _read_audio(self, basename):
         """
         First checks if audio needs converting and then puts the properly
@@ -177,14 +197,7 @@ class SimpleAudioIndexer(object):
                     A basename of `/home/random-guy/some-audio-file.wav` is
                     `some-audio-file.wav`
         """
-        name = ''.join(basename.split('.')[0])
-        # May cause problems if wav is not less than 9 channels.
-        if self.verbose:
-            print("Copying to {}/filtered".format(name, self.src_dir))
-        subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
-                          "{}/filtered/{}.wav".format(self.src_dir, name)],
-                         universal_newlines=True).communicate()
-
+        name = ''.join(basename.split('.')[:-1])
         # Checks the file size. It's better to use 95% of the allocated size
         # per file since the upper limit is not always respected.
         total_size = os.path.getsize("{}/filtered/{}.wav".format(
