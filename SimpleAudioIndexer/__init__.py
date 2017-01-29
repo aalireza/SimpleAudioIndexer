@@ -710,13 +710,25 @@ class SimpleAudioIndexer(object):
             try:
                 for word_block in timestamps[audio_filename]:
                     if (
+                            # When the query is identical
                             (word_block[0] == word_list[len(result)]) or
+                            # When the query is a subsequence of what's
+                            # available
                             (subsequence and
                              bool(re.search(".*".join(word_list[len(result)]),
                                             word_block[0]))) or
+                            # When query is a permutation of what's available.
                             (anagram and
                              sorted(word_block[0]) == sorted(
                                  word_list[len(result)])) or
+                            # When some letters are different. (i.e. Hamming)
+                            (len(word_block[0]) == len(
+                                word_list[len(result)]) and
+                             (sum(x != y for x, y in zip(
+                                 word_block[0], word_list[len(result)])) <=
+                              differing_letters_tolerance)) or
+                            # When query can be editted to look like what's
+                            # available. (i.e. Levenshtein)
                             (word_block[0] != word_list[len(result)] and
                              (0 <= maximum_single_char_edits_to_match <=
                              self._levenshtein_distance(
@@ -821,5 +833,3 @@ class SimpleAudioIndexer(object):
         minutes, seconds = divmod(floor(seconds), 60)
         hours, minutes = divmod(minutes, 60)
         return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
-
-
