@@ -1,0 +1,10 @@
+
+Input File     : 'small_audio.wav'
+Channels       : 1
+Sample Rate    : 44100
+Precision      : 16-bit
+Duration       : 00:00:04.21 = 185472 samples = 315.429 CDDA sectors
+File Size      : 371k
+Bit Rate       : 706k
+Sample Encoding: 16-bit Signed Integer PCM
+

@@ -1,0 +1,180 @@
+{
+   "results": [
+      {
+         "word_alternatives": [
+            {
+               "start_time": 1.71, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9854, 
+                     "word": "to"
+                  }
+               ], 
+               "end_time": 1.81
+            }, 
+            {
+               "start_time": 1.81, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9343, 
+                     "word": "enact"
+                  }
+               ], 
+               "end_time": 2.17
+            }, 
+            {
+               "start_time": 2.17, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9343, 
+                     "word": "this"
+                  }
+               ], 
+               "end_time": 2.33
+            }, 
+            {
+               "start_time": 2.33, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9319, 
+                     "word": "promise"
+                  }
+               ], 
+               "end_time": 2.81
+            }, 
+            {
+               "start_time": 2.81, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9319, 
+                     "word": "in"
+                  }
+               ], 
+               "end_time": 2.93
+            }, 
+            {
+               "start_time": 2.93, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9319, 
+                     "word": "our"
+                  }
+               ], 
+               "end_time": 3.09
+            }, 
+            {
+               "start_time": 3.09, 
+               "alternatives": [
+                  {
+                     "confidence": 0.9799, 
+                     "word": "lives"
+                  }
+               ], 
+               "end_time": 3.89
+            }
+         ], 
+         "alternatives": [
+            {
+               "transcript": "Americans are called to enact this promise in our lives ", 
+               "confidence": 0.886, 
+               "word_confidence": [
+                  [
+                     "Americans", 
+                     0.856
+                  ], 
+                  [
+                     "are", 
+                     0.9
+                  ], 
+                  [
+                     "called", 
+                     0.915
+                  ], 
+                  [
+                     "to", 
+                     1.0
+                  ], 
+                  [
+                     "enact", 
+                     1.0
+                  ], 
+                  [
+                     "this", 
+                     0.539
+                  ], 
+                  [
+                     "promise", 
+                     0.709
+                  ], 
+                  [
+                     "in", 
+                     0.811
+                  ], 
+                  [
+                     "our", 
+                     1.0
+                  ], 
+                  [
+                     "lives", 
+                     0.997
+                  ]
+               ], 
+               "timestamps": [
+                  [
+                     "Americans", 
+                     0.21, 
+                     1.07
+                  ], 
+                  [
+                     "are", 
+                     1.07, 
+                     1.25
+                  ], 
+                  [
+                     "called", 
+                     1.25, 
+                     1.71
+                  ], 
+                  [
+                     "to", 
+                     1.71, 
+                     1.81
+                  ], 
+                  [
+                     "enact", 
+                     1.81, 
+                     2.17
+                  ], 
+                  [
+                     "this", 
+                     2.17, 
+                     2.33
+                  ], 
+                  [
+                     "promise", 
+                     2.33, 
+                     2.81
+                  ], 
+                  [
+                     "in", 
+                     2.81, 
+                     2.93
+                  ], 
+                  [
+                     "our", 
+                     2.93, 
+                     3.09
+                  ], 
+                  [
+                     "lives", 
+                     3.09, 
+                     3.89
+                  ]
+               ]
+            }
+         ], 
+         "final": true
+      }
+   ], 
+   "result_index": 0
+}

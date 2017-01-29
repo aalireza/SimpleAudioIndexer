@@ -1,0 +1,10 @@
+
+Input File     : 'big_audio.wav'
+Channels       : 2
+Sample Rate    : 48000
+Precision      : 16-bit
+Duration       : 00:07:55.08 = 22803840 samples ~ 35631 CDDA sectors
+File Size      : 91.2M
+Bit Rate       : 1.54M
+Sample Encoding: 16-bit Signed Integer PCM
+
