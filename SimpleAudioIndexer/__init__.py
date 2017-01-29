@@ -616,10 +616,41 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
+    def _levenshtein_distance(s1, s2):
+        """
+        Minimum number of single char edits (i.e. substitution, insertion and
+        deletion) on `s1` to make it equivalent to `s2`.
+
+        Code is from: https://rosettacode.org/wiki/Levenshtein_distance#Python
+
+        Parameters
+        ----------
+        s1            str
+        s2            str
+
+        Returns
+        -------
+        -             int
+        """
+        if len(s1) > len(s2):
+            s1, s2 = s2, s1
+        distances = range(len(s1) + 1)
+        for index2, char2 in enumerate(s2):
+            new_distances = [index2+1]
+            for index1, char1 in enumerate(s1):
+                if char1 == char2:
+                    new_distances.append(distances[index1])
+                else:
+                    new_distances.append(1 + min((distances[index1],
+                                                 distances[index1+1],
+                                                 new_distances[-1])))
+            distances = new_distances
+        return distances[-1]
+
     def search(self, query, audio_basename=None, subsequence=False,
                timing_error=0.1, case_sensitive=True, anagram=False,
-               minimum_single_char_edits_to_match=0,
-               levenshtein_ratio=1, levenstein_distance=0):
+               maximum_single_char_edits_to_match=0,
+               differing_letters_tolerance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -679,13 +710,17 @@ class SimpleAudioIndexer(object):
             try:
                 for word_block in timestamps[audio_filename]:
                     if (
+                            (word_block[0] == word_list[len(result)]) or
                             (subsequence and
                              bool(re.search(".*".join(word_list[len(result)]),
                                             word_block[0]))) or
                             (anagram and
                              sorted(word_block[0]) == sorted(
                                  word_list[len(result)])) or
-                            (word_block[0] == word_list[len(result)])
+                            (word_block[0] != word_list[len(result)] and
+                             (0 <= maximum_single_char_edits_to_match <=
+                             self._levenshtein_distance(
+                                 word_list[len(result)], word_block[0])))
                     ):
                         result.append(tuple(word_block[1:]))
                         if len(result) == len(word_list):
@@ -788,30 +823,3 @@ class SimpleAudioIndexer(object):
         return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
 
 
-
-def levenshtein_distance(str1, str2):
-    """
-    Code is from: https://rosettacode.org/wiki/Levenshtein_distance#Python
-    """
-    m = len(str1)
-    n = len(str2)
-    lensum = float(m + n)
-    d = []
-    for i in range(m + 1):
-        d.append([i])
-    del d[0][0]
-    for j in range(n + 1):
-        d[0].append(j)
-    for j in range(1, n + 1):
-        for i in range(1, m + 1):
-            if str1[i - 1] == str2[j - 1]:
-                d[i].insert(j, d[i - 1][j - 1])
-            else:
-                minimum = min(d[i - 1][j] + 1,
-                              d[i][j - 1] + 1,
-                              d[i - 1][j - 1] + 2)
-                d[i].insert(j, minimum)
-    ldist = d[-1][-1]
-    lratio = (lensum - ldist)/lensum
-    return ldist, lratio
- 
