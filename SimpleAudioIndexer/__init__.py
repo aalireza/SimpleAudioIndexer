@@ -616,7 +616,7 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
-    def _levenshtein_distance(s1, s2):
+    def _levenshtein_distance(self, s1, s2):
         """
         Minimum number of single char edits (i.e. substitution, insertion and
         deletion) on `s1` to make it equivalent to `s2`.
@@ -726,7 +726,7 @@ class SimpleAudioIndexer(object):
                             (anagram and
                              sorted(word_block[0]) == sorted(
                                  word_list[len(result)])) or
-                            # When some letters are different. (i.e. Hamming)
+                            # # When some letters are different. (i.e. Hamming)
                             (len(word_block[0]) == len(
                                 word_list[len(result)]) and
                              (sum(x != y for x, y in zip(
@@ -734,10 +734,9 @@ class SimpleAudioIndexer(object):
                               differing_letters_tolerance)) or
                             # When query can be editted to look like what's
                             # available. (i.e. Levenshtein)
-                            (word_block[0] != word_list[len(result)] and
-                             (0 <= maximum_single_char_edits_to_match <=
-                             self._levenshtein_distance(
-                                 word_list[len(result)], word_block[0])))
+                            (self._levenshtein_distance(
+                                word_list[len(result)], word_block[0]) <=
+                             maximum_single_char_edits_to_match)
                     ):
                         result.append(tuple(word_block[1:]))
                         if len(result) == len(word_list):
