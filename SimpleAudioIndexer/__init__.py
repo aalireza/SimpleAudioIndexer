@@ -647,10 +647,10 @@ class SimpleAudioIndexer(object):
             distances = new_distances
         return distances[-1]
 
-    def search(self, query, audio_basename=None, subsequence=False,
-               timing_error=0.1, case_sensitive=True, anagram=False,
-               maximum_single_char_edits_to_match=0,
-               differing_letters_tolerance=0):
+    def search(self, query, audio_basename=None, case_sensitive=True,
+               subsequence=False, supersequence=False, timing_error=0.1,
+               anagram=False, maximum_single_char_edits_to_match=0,
+               differing_letters_tolerance=0, missing_words_count=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -717,6 +717,11 @@ class SimpleAudioIndexer(object):
                             (subsequence and
                              bool(re.search(".*".join(word_list[len(result)]),
                                             word_block[0]))) or
+                            # When the query is a supersequence of what's
+                            # available
+                            (supersequence and
+                             bool(re.search(".*".join(word_block[0]),
+                                            word_list[len(result)]))) or
                             # When query is a permutation of what's available.
                             (anagram and
                              sorted(word_block[0]) == sorted(
