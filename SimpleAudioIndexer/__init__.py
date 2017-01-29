@@ -27,6 +27,7 @@ from shutil import rmtree
 from string import ascii_letters
 import json
 import os
+import re
 import requests
 import subprocess
 
@@ -100,7 +101,7 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search(query, audio_basename, part_of_bigger_word, timing_error)
+    search(query, audio_basename, subsequence, timing_error, case_sensitive)
     search_all(queries, audio_basename, part_of_bigger_word, timing_error)
         Returns a dictionary of all results of all of the queries for all of
         the audio files.
@@ -615,7 +616,7 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
-    def search(self, query, audio_basename=None, part_of_bigger_word=False,
+    def search(self, query, audio_basename=None, subsequence=False,
                timing_error=0.1, case_sensitive=True,
                missing_words_tolerance=0, differing_letters_tolerance=0):
         """
@@ -629,10 +630,10 @@ class SimpleAudioIndexer(object):
                         spaces and then each word gets sequentially searched
         audio_basename str
                         Search only within the given audio_basename
-        part_of_bigger_word     bool
-                                `True` if it's not needed for the exact word be
-                                detected and larger strings that contain the
-                                given one are fine. Default is False.
+        subsequence     bool
+                        `True` if it's not needed for the exact word be
+                        detected and larger strings that contain the given one
+                        are fine. Default is False.
         timing_error    float
                         Sometimes other words (almost always very small) would
                         be detected between the words of the `query`. This
@@ -677,8 +678,9 @@ class SimpleAudioIndexer(object):
             try:
                 for word_block in timestamps[audio_filename]:
                     if (
-                            (part_of_bigger_word and
-                             word_block[0] in word_list[len(result)]) or
+                            (subsequence and
+                             bool(re.search(".*".join(word_list[len(result)]),
+                                            word_block[0]))) or
                             (word_block[0] == word_list[len(result)])
                     ):
                         result.append(tuple(word_block[1:]))
