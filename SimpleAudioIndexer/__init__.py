@@ -617,8 +617,9 @@ class SimpleAudioIndexer(object):
             self.__timestamps = literal_eval(f.read())
 
     def search(self, query, audio_basename=None, subsequence=False,
-               timing_error=0.1, case_sensitive=True,
-               missing_words_tolerance=0, differing_letters_tolerance=0):
+               timing_error=0.1, case_sensitive=True, anagram=False,
+               minimum_single_char_edits_to_match=0,
+               levenshtein_ratio=1, levenstein_distance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -681,6 +682,9 @@ class SimpleAudioIndexer(object):
                             (subsequence and
                              bool(re.search(".*".join(word_list[len(result)]),
                                             word_block[0]))) or
+                            (anagram and
+                             sorted(word_block[0]) == sorted(
+                                 word_list[len(result)])) or
                             (word_block[0] == word_list[len(result)])
                     ):
                         result.append(tuple(word_block[1:]))
@@ -782,3 +786,32 @@ class SimpleAudioIndexer(object):
         minutes, seconds = divmod(floor(seconds), 60)
         hours, minutes = divmod(minutes, 60)
         return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
+
+
+
+def levenshtein_distance(str1, str2):
+    """
+    Code is from: https://rosettacode.org/wiki/Levenshtein_distance#Python
+    """
+    m = len(str1)
+    n = len(str2)
+    lensum = float(m + n)
+    d = []
+    for i in range(m + 1):
+        d.append([i])
+    del d[0][0]
+    for j in range(n + 1):
+        d[0].append(j)
+    for j in range(1, n + 1):
+        for i in range(1, m + 1):
+            if str1[i - 1] == str2[j - 1]:
+                d[i].insert(j, d[i - 1][j - 1])
+            else:
+                minimum = min(d[i - 1][j] + 1,
+                              d[i][j - 1] + 1,
+                              d[i - 1][j - 1] + 2)
+                d[i].insert(j, minimum)
+    ldist = d[-1][-1]
+    lratio = (lensum - ldist)/lensum
+    return ldist, lratio
+ 
