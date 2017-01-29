@@ -648,7 +648,7 @@ class SimpleAudioIndexer(object):
         return distances[-1]
 
     def search(self, query, audio_basename=None, case_sensitive=True,
-               subsequence=False, supersequence=False, timing_error=0.1,
+               subsequence=False, supersequence=False, timing_error=0.0,
                anagram=False, maximum_single_char_edits_to_match=0,
                differing_letters_tolerance=0, missing_words_count=0):
         """
@@ -739,6 +739,12 @@ class SimpleAudioIndexer(object):
                              maximum_single_char_edits_to_match)
                     ):
                         result.append(tuple(word_block[1:]))
+                        try:
+                            if round(result[-1][-2] -
+                                     result[-2][-1], 4) > timing_error:
+                                result = list()
+                        except IndexError:
+                            pass
                         if len(result) == len(word_list):
                             yield {
                                 "File Name": audio_filename,
@@ -747,12 +753,6 @@ class SimpleAudioIndexer(object):
                                                  result[-1][-1]])
                             }
                             result = list()
-                    else:
-                        try:
-                            if (word_block[1] - result[-1][-1]) > timing_error:
-                                result = list()
-                        except IndexError:
-                            continue
             except KeyError:
                 pass
 
