@@ -616,7 +616,8 @@ class SimpleAudioIndexer(object):
             self.__timestamps = literal_eval(f.read())
 
     def search(self, query, audio_basename=None, part_of_bigger_word=False,
-               timing_error=0.1):
+               timing_error=0.1, case_sensitive=True,
+               missing_words_tolerance=0, differing_letters_tolerance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -661,30 +662,42 @@ class SimpleAudioIndexer(object):
             )
         )
         timestamps = self.get_timestamped_audio()
+        if not case_sensitive:
+            word_list = [x.lower() for x in word_list]
+            timestamps = {
+                key: [
+                    [word_block[0].lower(), word_block[1], word_block[2]]
+                    for word_block in timestamps[key]
+                ] for key in timestamps
+            }
         for audio_filename in (
                 timestamps.keys() * (audio_basename is None) +
                 [audio_basename] * (audio_basename is not None)):
             result = list()
-            for word_block in timestamps[audio_filename]:
-                if ((part_of_bigger_word and
-                    word_block[0] in word_list[len(result)]) or
-                   (word_block[0] == word_list[len(result)])):
-                    result.append(tuple(word_block[1:]))
-                    if len(result) == len(word_list):
-                        yield {
-                            "File Name": audio_filename,
-                            "Query": query,
-                            "Result": tuple([result[0][0], result[-1][-1]])
-                        }
-                        result = list()
-                else:
-                    try:
-                        if word_block[1] - result[-1][-1] > timing_error:
+            try:
+                for word_block in timestamps[audio_filename]:
+                    if (
+                            (part_of_bigger_word and
+                             word_block[0] in word_list[len(result)]) or
+                            (word_block[0] == word_list[len(result)])
+                    ):
+                        result.append(tuple(word_block[1:]))
+                        if len(result) == len(word_list):
+                            yield {
+                                "File Name": audio_filename,
+                                "Query": query,
+                                "Result": tuple([result[0][0],
+                                                 result[-1][-1]])
+                            }
                             result = list()
-                    except IndexError:
-                        continue
                     else:
-                        continue
+                        try:
+                            if (word_block[1] - result[-1][-1]) > timing_error:
+                                result = list()
+                        except IndexError:
+                            continue
+            except KeyError:
+                pass
 
     def search_all(self, queries, audio_basename=None,
                    part_of_bigger_word=False, timing_error=0.1):
