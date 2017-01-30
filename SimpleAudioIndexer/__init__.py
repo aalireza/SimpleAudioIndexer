@@ -848,9 +848,11 @@ class SimpleAudioIndexer(object):
                 ] for key in timestamps
             }
 
-        for audio_filename in (
-                timestamps.keys() * (audio_basename is None) +
-                [audio_basename] * (audio_basename is not None)):
+        if audio_basename is None:
+            iterables = timestamps.keys()
+        elif audio_basename is not None:
+            iterables = [audio_basename]
+        for audio_filename in iterables:
             result = list()
             missed_words_so_far = 0
             query_cursor = 0
