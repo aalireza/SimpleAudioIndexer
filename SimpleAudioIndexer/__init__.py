@@ -84,6 +84,9 @@ class SimpleAudioIndexer(object):
     get_audio_sample_bit(abs_path_audio)
     get_audio_duration_seconds(abs_path_audio)
     get_audio_bit_rate(abs_path_audio)
+    _seconds_to_HHMMSS(seconds)
+        Retuns a string which is the hour, minute, second(milli) representation
+        of the intput `seconds`
     split_audio_by_duration(audio_abs_path, results_abs_path, duration_seconds)
     split_audio_by_size(audio_abs_path, results_abs_path, chunk_size)
     index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
@@ -111,12 +114,10 @@ class SimpleAudioIndexer(object):
         anew.
     search(query, audio_basename, case_sensitive, subsequence, supersequence,
            timing_error, anagram, missing_word_tolerance)
-    search_all(queries, audio_basename, part_of_bigger_word, timing_error)
+    search_all(queries, audio_basename, case_sensitive, subsequence,
+               supersequence, timing_error, anagram, missing_word_tolerance)
         Returns a dictionary of all results of all of the queries for all of
         the audio files.
-    seconds_to_HHMMSS(seconds)
-        Retuns a string which is the hour, minute, second(milli) representation
-        of the intput `seconds`
     """
 
     def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
@@ -768,14 +769,20 @@ class SimpleAudioIndexer(object):
                         `True` if it's not needed for the exact word be
                         detected and larger strings that contain the given one
                         are fine. Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
         supersequence   Bool
                         `True` if it's not needed for the exact word be
                         detected and smaller strings that are contained
                         within the given one are fine. Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
         anagram         Bool
                         `True` if it's acceptable for a complete permutation
                         of the word to be found. e.g. "abcde" would be
                         acceptable for "edbac". Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
         timing_error    None or float
                         Sometimes other words (almost always very small) would
                         be detected between the words of the `query`. This
@@ -919,11 +926,13 @@ class SimpleAudioIndexer(object):
                 # move to the next timestamp.
                 continue
 
-    def search_all(self, queries, audio_basename=None,
-                   part_of_bigger_word=False, timing_error=0.1):
+    def search_all(self, queries, audio_basename=None, case_sensitive=False,
+                   subsequence=False, supersequence=False, timing_error=0.0,
+                   anagram=False, missing_word_tolerance=0):
         """
         Returns a dictionary of all results of all of the queries for all of
         the audio files.
+        All the specified parameters work per query.
 
         Parameters
         ----------
@@ -933,11 +942,27 @@ class SimpleAudioIndexer(object):
                         the body of the method.
         audio_basename str
                         Search only within the given audio_basename
-        part_of_bigger_word     bool
-                                `True` if it's not needed for the exact word be
-                                detected and larger strings that contain the
-                                given one are fine. Default is False.
-        timing_error    float
+        case_sensitive  Bool
+                        Default is False
+        subsequence     bool
+                        `True` if it's not needed for the exact word be
+                        detected and larger strings that contain the given one
+                        are fine. Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
+        supersequence   Bool
+                        `True` if it's not needed for the exact word be
+                        detected and smaller strings that are contained
+                        within the given one are fine. Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
+        anagram         Bool
+                        `True` if it's acceptable for a complete permutation
+                        of the word to be found. e.g. "abcde" would be
+                        acceptable for "edbac". Default is False.
+                        If the query is a sentences with multiple words, it'll
+                        be considered for each word, not the whole sentence.
+        timing_error    float or None
                         Sometimes other words (almost always very small) would
                         be detected between the words of the elements of
                         `queries`. This parameter defines the timing
@@ -945,6 +970,20 @@ class SimpleAudioIndexer(object):
                         0.1 which means it'd be acceptable if the next word of
                         an element of `queries` is found before 0.1 seconds of
                         the end of the previous word.
+                        If set to `None`, the error won't be considered.
+        missing_word_tolerance   int
+                                 The number of words that can be missed within
+                                 the result. For example, if the query is
+                                 "Some random text" and the tolerance value
+                                 is `1`, then "Some text" would be a valud
+                                 response.
+                                 Note that the first and last words cannot
+                                 be missed. Also, there'll be an error if
+                                 the value is more than the number of available
+                                 words. For the example above, any value more
+                                 than 1 would have given an error (since
+                                 there's only one word i.e. "random" that can
+                                 be missed)
 
         Returns
         -------
@@ -961,6 +1000,17 @@ class SimpleAudioIndexer(object):
         ------
         TypeError       if `queries` is neither a list nor a str
         """
+
+        search_gen_rest_of_kwargs = {
+            "audio_basename": audio_basename,
+            "case_sensitive": case_sensitive,
+            "subsequence": subsequence,
+            "supersequence": supersequence,
+            "timing_error": timing_error,
+            "anagram": anagram,
+            "missing_word_tolerance": missing_word_tolerance
+        }
+
         # When printing the output of search_results, normally the defaultdict
         # type would be shown as well. To print the `search_results` normally,
         # defining a PrettyDefaultDict type that is printable the same way as a
@@ -975,14 +1025,13 @@ class SimpleAudioIndexer(object):
             queries = [queries]
         search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
         for query in queries:
-            search_gen = self.search(query, audio_basename,
-                                     part_of_bigger_word, timing_error)
+            search_gen = self.search(query=query, **search_gen_rest_of_kwargs)
             for search_result in search_gen:
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
         return search_results
 
-    def seconds_to_HHMMSS(seconds):
+    def _seconds_to_HHMMSS(seconds):
         """
         Retuns a string which is the hour, minute, second(milli) representation
         of the intput `seconds`
