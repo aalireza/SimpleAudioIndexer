@@ -647,10 +647,45 @@ class SimpleAudioIndexer(object):
             distances = new_distances
         return distances[-1]
 
+    def _is_sublist(self, ls1, ls2):
+        """
+        First, checks to see if all elements of `ls2` is in `ls1` with at least
+        the same frequency and then checks to see if every element `ls2`
+        appears in `ls1` with the same order (index-wise).
+
+        The code for index checking is from:
+  `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
+
+        Parameters
+        ----------
+        ls1           list
+        ls2           list
+
+        Returns
+        -------
+        Bool
+        """
+    def get_all_in(one, another):
+        for element in one:
+            if element in another:
+                yield element
+
+    if (
+            not set(Counter(ls2).keys()).issubset(set(Counter(ls1).keys())) or
+            any([Counter(ls2)[element] > Counter(ls1)[element]
+                 for element in Counter(ls2)])
+    ):
+        return False
+
+    for x1, x2 in zip(get_all_in(ls1, ls2), get_all_in(ls2, ls1)):
+        if x1 != x2:
+            return False
+    return True
+
     def search(self, query, audio_basename=None, case_sensitive=True,
                subsequence=False, supersequence=False, timing_error=0.0,
                anagram=False, maximum_single_char_edits_to_match=0,
-               differing_letters_tolerance=0, missing_words_count=0):
+               differing_letters_tolerance=0, missing_word_tolerance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
@@ -684,7 +719,7 @@ class SimpleAudioIndexer(object):
                          of the tuple is the starting second of `query` and
                          the last element is the ending second of `query`
         """
-        word_list = list(
+        query_words = list(
             filter(
                 lambda element: element is not None,
                 ''.join(
@@ -694,9 +729,13 @@ class SimpleAudioIndexer(object):
                 ).split(" ")
             )
         )
+        # assert missing_word_tolerance < len(word_list), (
+        #     "The number of words that can be missing must be less than " +
+        #     "the total number of words within the query."
+        # )
         timestamps = self.get_timestamped_audio()
         if not case_sensitive:
-            word_list = [x.lower() for x in word_list]
+            query_words = [x.lower() for x in query_words]
             timestamps = {
                 key: [
                     [word_block[0].lower(), word_block[1], word_block[2]]
@@ -707,52 +746,73 @@ class SimpleAudioIndexer(object):
                 timestamps.keys() * (audio_basename is None) +
                 [audio_basename] * (audio_basename is not None)):
             result = list()
+            missed_words_so_far = 0
+            query_cursor = 0
             try:
+                # word_block's format: [str, float, float]
                 for word_block in timestamps[audio_filename]:
+                    # Do cursor last instead of len(result) for wordlist
+                    print(word_block, query_words, query_cursor, result, missed_words_so_far)
+                    print(word_block[0], query_words[query_cursor])
                     if (
                             # When the query is identical
-                            (word_block[0] == word_list[len(result)]) or
+                            (word_block[0] == query_words[query_cursor]) 
                             # When the query is a subsequence of what's
                             # available
-                            (subsequence and
-                             bool(re.search(".*".join(word_list[len(result)]),
-                                            word_block[0]))) or
-                            # When the query is a supersequence of what's
-                            # available
-                            (supersequence and
-                             bool(re.search(".*".join(word_block[0]),
-                                            word_list[len(result)]))) or
-                            # When query is a permutation of what's available.
-                            (anagram and
-                             sorted(word_block[0]) == sorted(
-                                 word_list[len(result)])) or
-                            # # When some letters are different. (i.e. Hamming)
-                            (len(word_block[0]) == len(
-                                word_list[len(result)]) and
-                             (sum(x != y for x, y in zip(
-                                 word_block[0], word_list[len(result)])) <=
-                              differing_letters_tolerance)) or
-                            # When query can be editted to look like what's
-                            # available. (i.e. Levenshtein)
-                            (self._levenshtein_distance(
-                                word_list[len(result)], word_block[0]) <=
-                             maximum_single_char_edits_to_match)
+                            # (subsequence and
+                            #  bool(re.search(".*".join(word_list[len(result)]),
+                            #                 word_block[0]))) or
+                            # # When the query is a supersequence of what's
+                            # # available
+                            # (supersequence and
+                            #  bool(re.search(".*".join(word_block[0]),
+                            #                 word_list[len(result)]))) or
+                            # # When query is a permutation of what's available.
+                            # (anagram and
+                            #  sorted(word_block[0]) == sorted(
+                            #      word_list[len(result)])) or
+                            # # # When some letters are different. (i.e. Hamming)
+                            # (len(word_block[0]) == len(
+                            #     word_list[len(result)]) and
+                            #  (sum(x != y for x, y in zip(
+                            #      word_block[0], word_list[len(result)])) <=
+                            #   differing_letters_tolerance)) or
+                            # # When query can be editted to look like what's
+                            # # available. (i.e. Levenshtein)
+                            # (self._levenshtein_distance(
+                            #     word_list[len(result)], word_block[0]) <=
+                            #  maximum_single_char_edits_to_match)
                     ):
-                        result.append(tuple(word_block[1:]))
-                        try:
-                            if round(result[-1][-2] -
-                                     result[-2][-1], 4) > timing_error:
-                                result = list()
-                        except IndexError:
-                            pass
-                        if len(result) == len(word_list):
+                        result.append(tuple(word_block))
+                        query_cursor += 1
+                        if timing_error is not None:
+                            try:
+                                if round(result[-1][-2] -
+                                         result[-2][-1], 4) > timing_error:
+                                    result = list()
+                            except IndexError:
+                                pass
+                        # if len(result) == len(query_words):
+                        #     if ((missed_words_so_far > 0) and
+                        #         ((result[0] != query_words[0]) or
+                        #          (result[-1] != query_words[-1]))):
+                        #         result = list()
+                        #     else:
+                        if 
                             yield {
                                 "File Name": audio_filename,
                                 "Query": query,
                                 "Result": tuple([result[0][0],
-                                                 result[-1][-1]])
+                                                    result[-1][-1]])
                             }
                             result = list()
+                    else:
+                        if missed_words_so_far > missing_word_tolerance:
+                            result = list()
+                        else:
+                            result.append(tuple(word_block[1:]))
+                        # query_cursor += 1
+                        missed_words_so_far += 1
             except KeyError:
                 pass
 
