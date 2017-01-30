@@ -101,6 +101,14 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
+    _is_anagram_of(candidate, target)
+    _is_subsequence_of(candidate, target)
+    _is_supersequence_of(candidate, target)
+    _partial_search_validator(sub, sup, anagram, subsequence, supersequence)
+        Validates the partial results of search for all the extra conditions
+        like being anagram etc. If it passes, search returns its result,
+        otherwise search method would discard its partial result and starts
+        anew.
     search(query, audio_basename, case_sensitive, subsequence, supersequence,
            timing_error, anagram, missing_word_tolerance)
     search_all(queries, audio_basename, part_of_bigger_word, timing_error)
@@ -702,12 +710,42 @@ class SimpleAudioIndexer(object):
         return True
 
     def _is_anagram_of(self, candidate, target):
+        """
+        Parameters
+        ----------
+        candidate     str
+        target        str
+
+        Returns
+        --------
+        Bool
+        """
         return (sorted(candidate) == sorted(target))
 
     def _is_subsequence_of(self, sub, sup):
+        """
+        Parameters
+        ----------
+        sub          str
+        sup          str
+
+        Returns
+        -------
+        Bool
+        """
         return bool(re.search(".*".join(sub), sup))
 
     def _is_supersequence_of(self, sup, sub):
+        """
+        Parameters
+        ----------
+        sub          str
+        sup          str
+
+        Returns
+        -------
+        Bool
+        """
         return self._is_subsequence_of(sub, sup)
 
     def search(self, query, audio_basename=None, case_sensitive=False,
