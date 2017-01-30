@@ -12,7 +12,7 @@ def argument_handler():
     parser.add_argument("-p", "--password", help="IBM Watson API Password",
                         type=str, required=True)
     parser.add_argument("-d", "--src_dir",
-                        help="Absolute path to ource directory for audio files",
+                        help="Absolute path to location of audio files",
                         type=str, required=True)
     parser.add_argument("-s", "--search",
                         help="Search for a word within the audios of src_dir",
