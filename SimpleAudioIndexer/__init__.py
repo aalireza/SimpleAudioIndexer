@@ -20,7 +20,6 @@ limitations under the License.
 from __future__ import absolute_import, division, print_function
 from ast import literal_eval
 from collections import defaultdict, Counter
-from distutils.spawn import find_executable
 from functools import reduce
 from math import floor
 from shutil import rmtree
@@ -58,9 +57,6 @@ class SimpleAudioIndexer(object):
     __timestamps:       defaultdict(list)
                         It holds the timestamps of the audio in a format
                         similar to above
-    __ffmpeg:           str
-                        Looks to see if ffmpeg is installed, if not, searches
-                        for avconv.
 
     Methods
     -------
@@ -87,6 +83,8 @@ class SimpleAudioIndexer(object):
     _seconds_to_HHMMSS(seconds)
         Retuns a string which is the hour, minute, second(milli) representation
         of the intput `seconds`
+    _audio_segment_extractor(audio_abs_path, segment_abs_path,
+                             starting_second, ending_second)
     split_audio_by_duration(audio_abs_path, results_abs_path, duration_seconds)
     split_audio_by_size(audio_abs_path, results_abs_path, chunk_size)
     index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
@@ -134,10 +132,6 @@ class SimpleAudioIndexer(object):
                             `src_dir/audio_file.wav`
         api_limit_bytes:    int
         verbose:            Bool
-
-        Raises
-        ------
-        Exception           If ffmpeg and avconv are not installed
         """
         self.username = username
         self.password = password
@@ -145,13 +139,6 @@ class SimpleAudioIndexer(object):
         self.src_dir = src_dir
         self.__api_limit_bytes = api_limit_bytes
         self.__timestamps = defaultdict(list)
-        # Recently no ffmpeg for Ubuntu or Debian. All the used commands here
-        # are compatible for avconv so either one would work.
-        self.__ffmpeg = os.path.basename(find_executable("ffmpeg") or
-                                         find_executable("avconv"))
-        if self.__ffmpeg is None:
-            raise Exception("Either ffmpeg or avconv is needed. " +
-                            "Neither is installed or accessible")
         # Because `needed_directories` are needed even if the initialization of
         # the object is not in a context manager for it to be created
         # automatically.
@@ -200,8 +187,10 @@ class SimpleAudioIndexer(object):
     def _staging_step(self, basename):
         """
         Checks the size of audio file, splits it if it's needed to manage api
-        limit and then moves to `staged` directory while appending \d{3} to
-        the end of the filename.
+        limit and then moves to `staged` directory while appending `*` to
+        the end of the filename for self.split_audio_by_duration to replace
+        it by a number.
+
         Parameters
         ----------
         basename    str
@@ -219,7 +208,7 @@ class SimpleAudioIndexer(object):
                     name, self.__api_limit_bytes))
             self.split_audio_by_size(
                 "{}/filtered/{}.wav".format(self.src_dir, name),
-                "{}/staged/{}%03.wav".format(self.src_dir, name),
+                "{}/staged/{}*.wav".format(self.src_dir, name),
                 self.__api_limit_bytes * 95 / 100)
         else:
             if self.verbose:
@@ -360,22 +349,49 @@ class SimpleAudioIndexer(object):
         )(bit_Rate_formatted)
         return bit_rate
 
+    def _audio_segment_extractor(self, audio_abs_path, segment_abs_path,
+                                 starting_second, ending_second):
+        """
+        Parameters
+        -----------
+        audio_abs_path      str
+        segment_abs_path    str
+        starting_second     int
+        ending_second       int
+        """
+        subprocess.Popen(["sox", str(audio_abs_path), str(segment_abs_path),
+                          str(starting_second), str(ending_second)],
+                         universal_newlines=True).communicate()
+
     def split_audio_by_duration(self, audio_abs_path,
                                 results_abs_path, duration_seconds):
         """
+        Calculates the length of each segment and passes it to
+        self._audio_segment_extractor
+
         Parameters
         ----------
         audio_abs_path      str
         results_abs_path    str
                             A place for adding digits needs to be added prior
-                            the the format decleration i.e. name%03.wav
+                            the the format decleration i.e. name%03.wav.
+                            Here, we've added `*` at staging step, which we'll
+                            replace.
         duration_seconds    int
         """
-        subprocess.Popen(
-            "{} -i {} -c copy -map 0 -segment_time {} -f segment {}".format(
-                self.__ffmpeg, audio_abs_path, duration_seconds,
-                results_abs_path),
-            shell=True, universal_newlines=True).communicate()
+        total_seconds = self.get_audio_duration_seconds(audio_abs_path)
+        current_segment = 0
+        while current_segment <= total_seconds // duration_seconds + 1:
+            if current_segment + duration_seconds > total_seconds:
+                ending_second = total_seconds
+            else:
+                ending_second = current_segment + duration_seconds
+            self._audio_segment_extractor(
+                audio_abs_path,
+                results_abs_path.replace("*", "{:03d}".format(
+                    current_segment)),
+                starting_second=current_segment, ending_second=ending_second
+            )
 
     def split_audio_by_size(self, audio_abs_path, results_abs_path,
                             chunk_size):
