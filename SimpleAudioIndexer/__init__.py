@@ -19,7 +19,7 @@ limitations under the License.
 
 from __future__ import absolute_import, division, print_function
 from ast import literal_eval
-from collections import defaultdict
+from collections import defaultdict, Counter
 from distutils.spawn import find_executable
 from functools import reduce
 from math import floor
@@ -101,7 +101,8 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search(query, audio_basename, subsequence, timing_error, case_sensitive)
+    search(query, audio_basename, case_sensitive, subsequence, supersequence,
+           timing_error, anagram, missing_word_tolerance)
     search_all(queries, audio_basename, part_of_bigger_word, timing_error)
         Returns a dictionary of all results of all of the queries for all of
         the audio files.
@@ -616,98 +617,148 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
-    def _levenshtein_distance(self, s1, s2):
+    def _partial_search_validator(self, sub, sup, anagram=False,
+                                  subsequence=False, supersequence=False):
         """
-        Minimum number of single char edits (i.e. substitution, insertion and
-        deletion) on `s1` to make it equivalent to `s2`.
+        It's responsible for validating the partial results of `search` method.
+        If it returns True, the search would return its result. Else, search
+        method would discard what it found and look for others.
 
-        Code is from: https://rosettacode.org/wiki/Levenshtein_distance#Python
-
-        Parameters
-        ----------
-        s1            str
-        s2            str
-
-        Returns
-        -------
-        -             int
-        """
-        if len(s1) > len(s2):
-            s1, s2 = s2, s1
-        distances = range(len(s1) + 1)
-        for index2, char2 in enumerate(s2):
-            new_distances = [index2+1]
-            for index1, char1 in enumerate(s1):
-                if char1 == char2:
-                    new_distances.append(distances[index1])
-                else:
-                    new_distances.append(1 + min((distances[index1],
-                                                 distances[index1+1],
-                                                 new_distances[-1])))
-            distances = new_distances
-        return distances[-1]
-
-    def _is_sublist(self, ls1, ls2):
-        """
-        First, checks to see if all elements of `ls2` is in `ls1` with at least
-        the same frequency and then checks to see if every element `ls2`
-        appears in `ls1` with the same order (index-wise).
+        First, checks to see if all elements of `sub` is in `sup` with at least
+        the same frequency and then checks to see if every element `sub`
+        appears in `sup` with the same order (index-wise).
+        If advanced control sturctures are specified, the containment condition
+        won't be checked.
 
         The code for index checking is from:
   `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
 
         Parameters
         ----------
-        ls1           list
-        ls2           list
+        sub           list
+        sup           list
 
         Returns
         -------
         Bool
         """
-    def get_all_in(one, another):
-        for element in one:
-            if element in another:
-                yield element
+        def get_all_in(one, another):
+            for element in one:
+                if element in another:
+                    yield element
 
-    if (
-            not set(Counter(ls2).keys()).issubset(set(Counter(ls1).keys())) or
-            any([Counter(ls2)[element] > Counter(ls1)[element]
-                 for element in Counter(ls2)])
-    ):
-        return False
+        def containment_check(sub, sup):
+            return (set(Counter(sub).keys()).issubset(
+                set(Counter(sup).keys())))
 
-    for x1, x2 in zip(get_all_in(ls1, ls2), get_all_in(ls2, ls1)):
-        if x1 != x2:
+        def containment_freq_check(sub, sup):
+            return (all([Counter(sub)[element] <= Counter(sup)[element]
+                         for element in Counter(sub)]))
+
+        def extra_freq_check(sub, sup, list_of_tups):
+            # Would be used for matching anagrams, subsequences etc.
+            return (
+                len(list_of_tups) > 0 and
+                all([
+                    Counter(sub)[tup[0]] <= Counter(sup)[tup[1]]
+                    for tup in list_of_tups])
+            )
+
+        # Regarding containment checking while having extra conditions,
+        # there's no good way to map each anagram or subseuqnece etc. that was
+        # found to the query word, without making it more complicated than
+        # it already is, because a query word can be anagram/subsequence etc.
+        # to multiple words of the timestamps yet finding the one with the
+        # right index would be the problem.
+        # Therefore we just approximate the solution by just counting
+        # the elements.
+        if len(sub) > len(sup):
             return False
-    return True
 
-    def search(self, query, audio_basename=None, case_sensitive=True,
+        for pred, func in set([(anagram, self._is_anagram_of),
+                               (subsequence, self._is_subsequence_of),
+                               (supersequence, self._is_supersequence_of)]):
+            if pred:
+                print("pred: ", pred)
+                pred_seive = [(sub_key, sup_key)
+                              for sub_key in set(Counter(sub).keys())
+                              for sup_key in set(Counter(sup).keys())
+                              if func(sub_key, sup_key)]
+                print("seive: ", pred_seive)
+                if not extra_freq_check(sub, sup, pred_seive):
+                    return False
+
+        if (
+                not any([anagram, subsequence, supersequence]) and
+                (not containment_check(sub, sup) or
+                 not containment_freq_check(sub, sup))
+        ):
+                return False
+
+        for x1, x2 in zip(get_all_in(sup, sub), get_all_in(sub, sup)):
+            if x1 != x2:
+                return False
+
+        return True
+
+    def _is_anagram_of(self, candidate, target):
+        return (sorted(candidate) == sorted(target))
+
+    def _is_subsequence_of(self, sub, sup):
+        return bool(re.search(".*".join(sub), sup))
+
+    def _is_supersequence_of(self, sup, sub):
+        return self._is_subsequence_of(sub, sup)
+
+    def search(self, query, audio_basename=None, case_sensitive=False,
                subsequence=False, supersequence=False, timing_error=0.0,
-               anagram=False, maximum_single_char_edits_to_match=0,
-               differing_letters_tolerance=0, missing_word_tolerance=0):
+               anagram=False, missing_word_tolerance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
 
         Parameters
         ----------
-        query          str
+        query           str
                         A string that'll be searched. It'll be splitted on
                         spaces and then each word gets sequentially searched
-        audio_basename str
+        audio_basename  str
                         Search only within the given audio_basename
+        case_sensitive  Bool
+                        Default is False
         subsequence     bool
                         `True` if it's not needed for the exact word be
                         detected and larger strings that contain the given one
                         are fine. Default is False.
-        timing_error    float
+        supersequence   Bool
+                        `True` if it's not needed for the exact word be
+                        detected and smaller strings that are contained
+                        within the given one are fine. Default is False.
+        anagram         Bool
+                        `True` if it's acceptable for a complete permutation
+                        of the word to be found. e.g. "abcde" would be
+                        acceptable for "edbac". Default is False.
+        timing_error    None or float
                         Sometimes other words (almost always very small) would
                         be detected between the words of the `query`. This
                         parameter defines the timing difference/tolerance of
                         the search. By default it's 0.1, which means it'd be
                         acceptable if the next word of the `query` is found
                         before 0.1 seconds of the end of the previous word.
+                        If set to `None`, the error won't be read.
+        missing_word_tolerance   int
+                                 The number of words that can be missed within
+                                 the result. For example, if the query is
+                                 "Some random text" and the tolerance value
+                                 is `1`, then "Some text" would be a valud
+                                 response.
+                                 Note that the first and last words cannot
+                                 be missed. Also, there'll be an error if
+                                 the value is more than the number of available
+                                 words. For the example above, any value more
+                                 than 1 would have given an error (since
+                                 there's only one word i.e. "random" that can
+                                 be missed)
 
         Yields
         ------
@@ -718,6 +769,13 @@ class SimpleAudioIndexer(object):
                          is the value of the "Result" key. The first element
                          of the tuple is the starting second of `query` and
                          the last element is the ending second of `query`
+
+        Raises
+        ------
+        AssertionError       If `missing_word_tolerance` value is more than
+                             the total number of words in the query minus 2
+                             (since the first and the last word cannot be
+                              removed)
         """
         query_words = list(
             filter(
@@ -729,10 +787,12 @@ class SimpleAudioIndexer(object):
                 ).split(" ")
             )
         )
-        # assert missing_word_tolerance < len(word_list), (
-        #     "The number of words that can be missing must be less than " +
-        #     "the total number of words within the query."
-        # )
+        assert abs(missing_word_tolerance -
+                   (len(query_words) - 2)) >= 0, (
+            "The number of words that can be missing must be less than " +
+            "the total number of words within the query minus the first and " +
+            "the last word."
+        )
         timestamps = self.get_timestamped_audio()
         if not case_sensitive:
             query_words = [x.lower() for x in query_words]
@@ -742,6 +802,7 @@ class SimpleAudioIndexer(object):
                     for word_block in timestamps[key]
                 ] for key in timestamps
             }
+
         for audio_filename in (
                 timestamps.keys() * (audio_basename is None) +
                 [audio_basename] * (audio_basename is not None)):
@@ -751,70 +812,74 @@ class SimpleAudioIndexer(object):
             try:
                 # word_block's format: [str, float, float]
                 for word_block in timestamps[audio_filename]:
-                    # Do cursor last instead of len(result) for wordlist
-                    print(word_block, query_words, query_cursor, result, missed_words_so_far)
-                    print(word_block[0], query_words[query_cursor])
+                    print(word_block, query_words, query_cursor)
+                    print(result)
                     if (
                             # When the query is identical
-                            (word_block[0] == query_words[query_cursor]) 
+                            (word_block[0] == query_words[query_cursor]) or
                             # When the query is a subsequence of what's
                             # available
-                            # (subsequence and
-                            #  bool(re.search(".*".join(word_list[len(result)]),
-                            #                 word_block[0]))) or
-                            # # When the query is a supersequence of what's
-                            # # available
-                            # (supersequence and
-                            #  bool(re.search(".*".join(word_block[0]),
-                            #                 word_list[len(result)]))) or
-                            # # When query is a permutation of what's available.
-                            # (anagram and
-                            #  sorted(word_block[0]) == sorted(
-                            #      word_list[len(result)])) or
-                            # # # When some letters are different. (i.e. Hamming)
-                            # (len(word_block[0]) == len(
-                            #     word_list[len(result)]) and
-                            #  (sum(x != y for x, y in zip(
-                            #      word_block[0], word_list[len(result)])) <=
-                            #   differing_letters_tolerance)) or
-                            # # When query can be editted to look like what's
-                            # # available. (i.e. Levenshtein)
-                            # (self._levenshtein_distance(
-                            #     word_list[len(result)], word_block[0]) <=
-                            #  maximum_single_char_edits_to_match)
+                            (subsequence and
+                             self._is_subsequence_of(query_words[query_cursor],
+                                                     word_block[0])) or
+                            # When the query is a supersequence of what's
+                            # available
+                            (supersequence and self._is_supersequence_of(
+                                query_words[query_cursor], word_block[0])) or
+                            # When query is a permutation of what's available.
+                            (anagram and self._is_anagram_of(
+                                query_words[query_cursor], word_block[0]))
                     ):
                         result.append(tuple(word_block))
-                        query_cursor += 1
+
                         if timing_error is not None:
                             try:
                                 if round(result[-1][-2] -
                                          result[-2][-1], 4) > timing_error:
+                                    print("Inside")
                                     result = list()
+                                    query_cursor = 0
                             except IndexError:
                                 pass
-                        # if len(result) == len(query_words):
-                        #     if ((missed_words_so_far > 0) and
-                        #         ((result[0] != query_words[0]) or
-                        #          (result[-1] != query_words[-1]))):
-                        #         result = list()
-                        #     else:
-                        if 
+
+                        if self._partial_search_validator(
+                                query_words, [x[0] for x in result],
+                                anagram=anagram,
+                                subsequence=subsequence,
+                                supersequence=supersequence
+                        ):
                             yield {
                                 "File Name": audio_filename,
                                 "Query": query,
-                                "Result": tuple([result[0][0],
-                                                    result[-1][-1]])
+                                "Result": tuple([result[0][1],
+                                                 result[-1][-1]])
                             }
                             result = list()
-                    else:
-                        if missed_words_so_far > missing_word_tolerance:
-                            result = list()
-                        else:
-                            result.append(tuple(word_block[1:]))
-                        # query_cursor += 1
+                            query_cursor = 0
+
+                        query_cursor += 1
+
+                    elif missed_words_so_far > missing_word_tolerance:
+                        result = list()
+                        query_cursor = 0
+
+                    elif (missing_word_tolerance > 0) and (len(result) > 0):
+                        result.append(tuple(word_block))
                         missed_words_so_far += 1
+
             except KeyError:
+                # This is needed for the case where no timestamp is present.
                 pass
+
+            except IndexError:
+                # This is needed when multiple timestamps are present, and
+                # advanced control structures like `missed_word_tolerance` are
+                # non-zero. In that case, it can search to the end of the first
+                # timestamp looking to complete its partial result and since
+                # there are no more `word_block`s left, it returns an error.
+                # `continue` should be used to reset the partial result and
+                # move to the next timestamp.
+                continue
 
     def search_all(self, queries, audio_basename=None,
                    part_of_bigger_word=False, timing_error=0.1):
