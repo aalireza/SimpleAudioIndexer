@@ -79,7 +79,7 @@ def test_search(indexer, query, case_sensitive, filename_for_result, result,
         "missing_word_tolerance": missing_word_tolerance,
         }
     expected_results = result_template(query, filename_for_result, result)
-    if missing_word_tolerance >= len(query.split(" ")):
+    if abs(missing_word_tolerance - (len(query.split(" ")) - 2)) < 0:
         with pytest.raises(AssertionError) as e:
             actual_results = list(indexer.search(**actual_kwargs))
             assert str(e.value) == (
@@ -220,7 +220,7 @@ def test_search_missing_word_tolerance(
         "timing_error": None
     }
     expected_results = result_template(query, filename_for_result, result)
-    if missing_word_tolerance >= len(query.split(" ")):
+    if abs(missing_word_tolerance - (len(query.split(" ")) - 2)) < 0:
         with pytest.raises(AssertionError) as e:
             actual_results = list(indexer.search(**actual_kwargs))
             assert str(e.value) == (
