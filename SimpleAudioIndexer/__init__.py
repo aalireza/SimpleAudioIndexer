@@ -60,6 +60,12 @@ class SimpleAudioIndexer(object):
 
     Methods
     -------
+    __enter__()
+        Creates the needed directories for audio processing. It'll be called
+        even if not in a context manager.
+    __exit__()
+        Removes the works of __enter__. Will only be called if in a context
+        manager.
     get_username()
     set_username()
     get_password()
@@ -348,6 +354,25 @@ class SimpleAudioIndexer(object):
            int(x)
         )(bit_Rate_formatted)
         return bit_rate
+
+    def _seconds_to_HHMMSS(seconds):
+        """
+        Retuns a string which is the hour, minute, second(milli) representation
+        of the intput `seconds`
+
+        Parameters
+        ----------
+        seconds         float
+
+        Returns
+        -------
+        -               str
+                        Has the form <int>H<int>M<int>S.<float>
+        """
+        less_than_second = seconds - floor(seconds)
+        minutes, seconds = divmod(floor(seconds), 60)
+        hours, minutes = divmod(minutes, 60)
+        return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
 
     def _audio_segment_extractor(self, audio_abs_path, segment_abs_path,
                                  starting_second, ending_second):
@@ -642,6 +667,45 @@ class SimpleAudioIndexer(object):
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
+    def _is_anagram_of(self, candidate, target):
+        """
+        Parameters
+        ----------
+        candidate     str
+        target        str
+
+        Returns
+        --------
+        Bool
+        """
+        return (sorted(candidate) == sorted(target))
+
+    def _is_subsequence_of(self, sub, sup):
+        """
+        Parameters
+        ----------
+        sub          str
+        sup          str
+
+        Returns
+        -------
+        Bool
+        """
+        return bool(re.search(".*".join(sub), sup))
+
+    def _is_supersequence_of(self, sup, sub):
+        """
+        Parameters
+        ----------
+        sub          str
+        sup          str
+
+        Returns
+        -------
+        Bool
+        """
+        return self._is_subsequence_of(sub, sup)
+
     def _partial_search_validator(self, sub, sup, anagram=False,
                                   subsequence=False, supersequence=False):
         """
@@ -725,45 +789,6 @@ class SimpleAudioIndexer(object):
                 return False
 
         return True
-
-    def _is_anagram_of(self, candidate, target):
-        """
-        Parameters
-        ----------
-        candidate     str
-        target        str
-
-        Returns
-        --------
-        Bool
-        """
-        return (sorted(candidate) == sorted(target))
-
-    def _is_subsequence_of(self, sub, sup):
-        """
-        Parameters
-        ----------
-        sub          str
-        sup          str
-
-        Returns
-        -------
-        Bool
-        """
-        return bool(re.search(".*".join(sub), sup))
-
-    def _is_supersequence_of(self, sup, sub):
-        """
-        Parameters
-        ----------
-        sub          str
-        sup          str
-
-        Returns
-        -------
-        Bool
-        """
-        return self._is_subsequence_of(sub, sup)
 
     def search(self, query, audio_basename=None, case_sensitive=False,
                subsequence=False, supersequence=False, timing_error=0.0,
@@ -1049,21 +1074,3 @@ class SimpleAudioIndexer(object):
                     search_result["File Name"]].append(search_result["Result"])
         return search_results
 
-    def _seconds_to_HHMMSS(seconds):
-        """
-        Retuns a string which is the hour, minute, second(milli) representation
-        of the intput `seconds`
-
-        Parameters
-        ----------
-        seconds         float
-
-        Returns
-        -------
-        -               str
-                        Has the form <int>H<int>M<int>S.<float>
-        """
-        less_than_second = seconds - floor(seconds)
-        minutes, seconds = divmod(floor(seconds), 60)
-        hours, minutes = divmod(minutes, 60)
-        return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
