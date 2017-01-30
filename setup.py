@@ -39,17 +39,15 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX",
         "Operating System :: Unix",
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
     ],
-    keywords=["audio", "indexing", "search", "ibm", "watson"],
+    keywords=["audio", "indexing", "search", "ibm", "watson", "anagram",
+              "subsequence", "supersequence", "sequence", "timestamp"],
     entry_points={
           'console_scripts': [
               'sai = SimpleAudioIndexer.__main__:Main',
           ],
       },
+    install_requires=['requests'],
 )
