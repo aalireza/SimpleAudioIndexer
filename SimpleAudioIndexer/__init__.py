@@ -768,12 +768,10 @@ class SimpleAudioIndexer(object):
                                (subsequence, self._is_subsequence_of),
                                (supersequence, self._is_supersequence_of)]):
             if pred:
-                print("pred: ", pred)
                 pred_seive = [(sub_key, sup_key)
                               for sub_key in set(Counter(sub).keys())
                               for sup_key in set(Counter(sup).keys())
                               if func(sub_key, sup_key)]
-                print("seive: ", pred_seive)
                 if not extra_freq_check(sub, sup, pred_seive):
                     return False
 
@@ -889,19 +887,16 @@ class SimpleAudioIndexer(object):
                 ] for key in timestamps
             }
 
-        if audio_basename is None:
-            iterables = timestamps.keys()
-        elif audio_basename is not None:
-            iterables = [audio_basename]
-        for audio_filename in iterables:
+        for audio_filename in (
+                (lambda: (timestamps.keys() if audio_basename is None else
+                          [audio_basename]))()
+        ):
             result = list()
             missed_words_so_far = 0
             query_cursor = 0
             try:
                 # word_block's format: [str, float, float]
                 for word_block in timestamps[audio_filename]:
-                    print(word_block, query_words, query_cursor)
-                    print(result)
                     if (
                             # When the query is identical
                             (word_block[0] == query_words[query_cursor]) or
@@ -924,7 +919,6 @@ class SimpleAudioIndexer(object):
                             try:
                                 if round(result[-1][-2] -
                                          result[-2][-1], 4) > timing_error:
-                                    print("Inside")
                                     result = list()
                                     query_cursor = 0
                             except IndexError:
@@ -1073,4 +1067,3 @@ class SimpleAudioIndexer(object):
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
         return search_results
-
