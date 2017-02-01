@@ -31,9 +31,6 @@ import requests
 import subprocess
 
 
-needed_directories = {"filtered", "staging"}
-
-
 class SimpleAudioIndexer(object):
     """
     Should write overall process focusing on src_dir events
@@ -41,66 +38,31 @@ class SimpleAudioIndexer(object):
 
     Attributes
     ----------
-    username:           str
-                        IBM Watson API username
-    password:           str
-                        IBM Watson API password
-    src_dir:            str
-                        Absolute path to the source directory of audio files
-                        such that the absolute path of the audio that'll be
-                        indexed would be `src_dir/audio_file.wav`
-    verbose:            Bool
-                        `True` if progress needs to be printed
-    __api_limit_bytes:  int
-                        It holds the API limitation of Watson speech api http
-                        sessionless which is 100Mbs.
-    __timestamps:       defaultdict(list)
-                        It holds the timestamps of the audio in a format
-                        similar to above
+    username :  str
+        IBM Watson API username
+    password :  str
+        IBM Watson API password
+    src_dir :  str
+        Absolute path to the source directory of audio files such that the
+        absolute path of the audio that'll be indexed would be
+        `src_dir/audio_file.wav`
+    verbose :  bool, optional
+        `True` if progress needs to be printed. Default is False.
+    api_limit_bytes :  int, optional
+        It holds the API limitation of Watson speech api http sessionless
+        which is 100Mbs. Default is 100000000.
 
     Methods
     -------
-    __enter__()
-        Creates the needed directories for audio processing. It'll be called
-        even if not in a context manager.
-    __exit__()
-        Removes the works of __enter__. Will only be called if in a context
-        manager.
     get_username()
     set_username()
     get_password()
     set_password()
-    _filtered_step(basename)
-        Moves the audio to `filtered` dir if its format is `wav`
-    _staging_step(basename)
-        Splits the audio -if needed to be under api limit- and then moves it
-        to `staged` directory.
-    _prepare_audio(basename)
-        A method that'll be called from the method `index_audio`. This method
-        primarily validates/splits and reads the audio file(s)
-    list_audio_files(sub_dir, only_wav)
-        Returns a list of audiofiles in a subdir or the self.src_dir whose
-        formats are `wav`
-    get_audio_channels(audio_abs_path)
-    get_audio_sample_rate(audio_abs_path)
-    get_audio_sample_bit(audio_abs_path)
-    get_audio_duration_seconds(audio_abs_path)
-    get_audio_bit_rate(audio_abs_path)
-    _seconds_to_HHMMSS(seconds)
-        Retuns a string which is the hour, minute, second(milli) representation
-        of the intput `seconds`
-    _audio_segment_extractor(audio_abs_path, segment_abs_path,
-                             starting_second, ending_second)
-    split_audio_by_duration(audio_abs_path, results_abs_path, duration_seconds)
-    split_audio_by_size(audio_abs_path, results_abs_path, chunk_size)
     index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
                 word_confidence=True, word_alternatives_threshold=0.9,
                 keywords=None, keywords_threshold=None,
                 profanity_filter_for_US_results=False)
         Implements a searching-suitable interface for the Watson API
-    _timestamp_extractor(audio_json)
-        Parses the generated Json from `index_audio` method to get the
-        timestamps. It works for a single audio file that's less than 100M
     get_timestamped_audio()
         Returns a corrected dictionary whose key is the original file name and
         whose value is a list of words and their beginning and ending time. It
@@ -108,16 +70,8 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    _is_anagram_of(candidate, target)
-    _is_subsequence_of(candidate, target)
-    _is_supersequence_of(candidate, target)
-    _partial_search_validator(sub, sup, anagram, subsequence, supersequence)
-        Validates the partial results of search for all the extra conditions
-        like being anagram etc. If it passes, search returns its result,
-        otherwise search method would discard its partial result and starts
-        anew.
-    search(query, audio_basename, case_sensitive, subsequence, supersequence,
-           timing_error, anagram, missing_word_tolerance)
+    search_gen(query, audio_basename, case_sensitive, subsequence,
+               supersequence, timing_error, anagram, missing_word_tolerance)
     search_all(queries, audio_basename, case_sensitive, subsequence,
                supersequence, timing_error, anagram, missing_word_tolerance)
         Returns a dictionary of all results of all of the queries for all of
@@ -125,40 +79,49 @@ class SimpleAudioIndexer(object):
     """
 
     def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
-                 verbose=False):
+                 verbose=False, needed_directories={"filtered", "staging"}):
         """
         Parameters
         ----------
-        username:  str
-        password:  str
-        src_dir:  str
+        username : str
+        password : str
+        src_dir : str
             Absolute path to the source directory of audio files such that the
             absolute path of the audio that'll be indexed would be
             `src_dir/audio_file.wav`
-        api_limit_bytes:  int, optional
+        api_limit_bytes : int, optional
             default is 100000000
-        verbose:  bool, optional
+        verbose : bool, optional
             default is False
         """
         self.username = username
         self.password = password
         self.verbose = verbose
         self.src_dir = src_dir
-        self.__api_limit_bytes = api_limit_bytes
+        self.api_limit_bytes = api_limit_bytes
         self.__timestamps = defaultdict(list)
+        self._needed_directories = needed_directories
         # Because `needed_directories` are needed even if the initialization of
         # the object is not in a context manager for it to be created
         # automatically.
         self.__enter__()
 
     def __enter__(self):
-        for directory in needed_directories:
+        """
+        Creates the needed directories for audio processing. It'll be called
+        even if not in a context manager.
+        """
+        for directory in self._needed_directories:
             if not os.path.exists("{}/{}".format(self.src_dir, directory)):
                 os.mkdir("{}/{}".format(self.src_dir, directory))
         return self
 
     def __exit__(self, *args):
-        for directory in needed_directories:
+        """
+        Removes the works of __enter__. Will only be called if in a context
+        manager.
+        """
+        for directory in self._needed_directories:
             rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_username(self):
@@ -168,7 +131,7 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        username:  str
+        username : str
         """
         self.username = username
 
@@ -179,7 +142,7 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        password:  str
+        password : str
         """
         self.password = password
 
@@ -188,7 +151,7 @@ class SimpleAudioIndexer(object):
         Moves the audio file if the format is `wav` to `filtered` directory.
         Parameters
         ----------
-        basename: str
+        basename : str
             A basename of `/home/random-guy/some-audio-file.wav` is
             `some-audio-file.wav`
         """
@@ -210,7 +173,7 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        basename:  str
+        basename : str
             A basename of `/home/random-guy/some-audio-file.wav` is
             `some-audio-file.wav`
         """
@@ -219,14 +182,14 @@ class SimpleAudioIndexer(object):
         # per file since the upper limit is not always respected.
         total_size = os.path.getsize("{}/filtered/{}.wav".format(
             self.src_dir, name))
-        if total_size >= self.__api_limit_bytes:
+        if total_size >= self.api_limit_bytes:
             if self.verbose:
                 print("{}'s size exceeds API limit ({}). Splitting...".format(
-                    name, self.__api_limit_bytes))
-            self.split_audio_by_size(
+                    name, self.api_limit_bytes))
+            self.__split_audio_by_size(
                 "{}/filtered/{}.wav".format(self.src_dir, name),
                 "{}/staged/{}*.wav".format(self.src_dir, name),
-                self.__api_limit_bytes * 95 / 100)
+                self.api_limit_bytes * 95 / 100)
         else:
             if self.verbose:
                 print("{}'s size is fine. Moving to staging...'".format(name))
@@ -241,23 +204,23 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        basename: str
+        basename : str
             A basename of `/home/random-guy/some-audio-file.wav` is
             `some-audio-file.wav`
         """
         self._filtering_step(basename)
         self._staging_step(basename)
 
-    def list_audio_files(self, sub_dir=""):
+    def _list_audio_files(self, sub_dir=""):
         """
         Parameters
         ----------
-        sub_dir:  one of `needed_directories`, optional
+        sub_dir : one of `needed_directories`, optional
             Default is "", which means it'll look through all of subdirs.
 
         Returns
         -------
-        audio_files: [str]
+        audio_files : [str]
             A list whose elements are basenames of the present audiofiles whose
             formats are `wav`
         """
@@ -269,15 +232,15 @@ class SimpleAudioIndexer(object):
                 audio_files.append(possibly_audio_file)
         return audio_files
 
-    def get_audio_channels(self, audio_abs_path):
+    def _get_audio_channels(self, audio_abs_path):
         """
         Parameters
         ----------
-        audio_abs_path: str
+        audio_abs_path : str
 
         Returns
         -------
-        channel_num:  int
+        channel_num : int
         """
         channel_num = int(
             subprocess.check_output(
@@ -287,15 +250,15 @@ class SimpleAudioIndexer(object):
         )
         return channel_num
 
-    def get_audio_sample_rate(self, audio_abs_path):
+    def _get_audio_sample_rate(self, audio_abs_path):
         """
         Parameters
         ----------
-        audio_abs_path:  str
+        audio_abs_path : str
 
         Returns
         -------
-        sample_rate:  int
+        sample_rate : int
         """
         sample_rate = int(
            subprocess.check_output(
@@ -305,15 +268,15 @@ class SimpleAudioIndexer(object):
         )
         return sample_rate
 
-    def get_audio_sample_bit(self, audio_abs_path):
+    def _get_audio_sample_bit(self, audio_abs_path):
         """
         Parameters
         ----------
-        audio_abs_path:  str
+        audio_abs_path : str
 
         Returns
         -------
-        sample_bit:  int
+        sample_bit : int
         """
         sample_bit = int(
            subprocess.check_output(
@@ -323,15 +286,15 @@ class SimpleAudioIndexer(object):
         )
         return sample_bit
 
-    def get_audio_duration_seconds(self, audio_abs_path):
+    def _get_audio_duration_seconds(self, audio_abs_path):
         """
         Parameters
         ----------
-        audio_abs_path:  str
+        audio_abs_path : str
 
         Returns
         -------
-        total_seconds:  int
+        total_seconds : int
         """
         HHMMSS_duration = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
@@ -344,15 +307,15 @@ class SimpleAudioIndexer(object):
         )
         return total_seconds
 
-    def get_audio_bit_rate(self, audio_abs_path):
+    def _get_audio_bit_rate(self, audio_abs_path):
         """
         Parameters
         -----------
-        audio_abs_path:  str
+        audio_abs_path : str
 
         Returns
         -------
-        bit_rate:  int
+        bit_rate : int
         """
         bit_Rate_formatted = subprocess.check_output(
             """sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""".format(
@@ -374,7 +337,7 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        seconds:  float
+        seconds : float
 
         Returns
         -------
@@ -391,31 +354,31 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         -----------
-        audio_abs_path:  str
-        segment_abs_path:  str
-        starting_second:  int
-        ending_second:  int
+        audio_abs_path : str
+        segment_abs_path : str
+        starting_second : int
+        ending_second : int
         """
         subprocess.Popen(["sox", str(audio_abs_path), str(segment_abs_path),
                           str(starting_second), str(ending_second)],
                          universal_newlines=True).communicate()
 
-    def split_audio_by_duration(self, audio_abs_path,
-                                results_abs_path, duration_seconds):
+    def _split_audio_by_duration(self, audio_abs_path,
+                                 results_abs_path, duration_seconds):
         """
         Calculates the length of each segment and passes it to
         self._audio_segment_extractor
 
         Parameters
         ----------
-        audio_abs_path:  str
-        results_abs_path:  str
+        audio_abs_path : str
+        results_abs_path : str
             A place for adding digits needs to be added prior the the format
             decleration i.e. name%03.wav. Here, we've added `*` at staging
             step, which we'll replace.
-        duration_seconds: int
+        duration_seconds : int
         """
-        total_seconds = self.get_audio_duration_seconds(audio_abs_path)
+        total_seconds = self._get_audio_duration_seconds(audio_abs_path)
         current_segment = 0
         while current_segment <= total_seconds // duration_seconds + 1:
             if current_segment + duration_seconds > total_seconds:
@@ -429,8 +392,8 @@ class SimpleAudioIndexer(object):
                 starting_second=current_segment, ending_second=ending_second
             )
 
-    def split_audio_by_size(self, audio_abs_path, results_abs_path,
-                            chunk_size):
+    def _split_audio_by_size(self, audio_abs_path, results_abs_path,
+                             chunk_size):
         """
         Calculates the duration of the name.wav in order for all splits have
         the size of chunk_size except possibly the last split (which will be
@@ -438,21 +401,21 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        audio_abs_path:  str
-        results_abs_path:  str
+        audio_abs_path : str
+        results_abs_path : str
             A place for adding digits needs to be added prior the the format
             decleration i.e. name%03.wav
-        chunk_size:  int
+        chunk_size : int
             Should be in bytes
         """
-        sample_rate = self.get_audio_sample_rate(audio_abs_path)
-        sample_bit = self.get_audio_sample_bit(audio_abs_path)
-        channel_num = self.get_audio_channels(audio_abs_path)
+        sample_rate = self._get_audio_sample_rate(audio_abs_path)
+        sample_bit = self._get_audio_sample_bit(audio_abs_path)
+        channel_num = self._get_audio_channels(audio_abs_path)
         duration = 8 * chunk_size / reduce(lambda x, y: int(x) * int(y),
                                            [sample_rate, sample_bit,
                                             channel_num])
-        self.split_audio_by_duration(audio_abs_path, results_abs_path,
-                                     duration)
+        self._split_audio_by_duration(audio_abs_path, results_abs_path,
+                                      duration)
 
     def index_audio(self, name=None, continuous=True,
                     model="en-US_BroadbandModel", word_confidence=True,
@@ -462,23 +425,23 @@ class SimpleAudioIndexer(object):
         """
         Implements a search-suitable interface for Watson speech API.
 
-        Some explaination of the parameters here have been taken from [1]
+        Some explaination of the parameters here have been taken from [1]_
 
         Parameters
         ----------
-        name: str, optional
+        name : str, optional
             A specific filename to be indexed and is placed in src_dir
             The name of `audio.wav` would be `audio`.
             If `None` is selected, all the valid audio files would be indexed.
             Default is None.
-        continuous: bool
+        continuous : bool
             Indicates whether multiple final results that represent consecutive
             phrases separated by long pauses are returned.
             If true, such phrases are returned; if false (the default),
             recognition ends after the first end-of-speech (EOS) incident is
             detected.
             Default is True.
-        model:  {
+        model :  {
                     'ar-AR_BroadbandModel',
                     'en-UK_BroadbandModel'
                     'en-UK_NarrowbandModel',
@@ -496,22 +459,22 @@ class SimpleAudioIndexer(object):
                  }
             The identifier of the model to be used for the recognition
             Default is 'en-US_BroadbandModel'
-        word_confidence:  bool
+        word_confidence : bool
             Indicates whether a confidence measure in the range of 0 to 1 is
             returned for each word.
             The default is True. (It's False in the original)
-        word_alternatives_threshold:  numeric
+        word_alternatives_threshold : numeric
             A confidence value that is the lower bound for identifying a
             hypothesis as a possible word alternative (also known as
             "Confusion Networks"). An alternative word is considered if its
             confidence is greater than or equal to the threshold. Specify a
             probability between 0 and 1 inclusive.
-        keywords:  [str], optional
+        keywords : [str], optional
             A list of keywords to spot in the audio. Each keyword string can
             include one or more tokens. Keywords are spotted only in the final
             hypothesis, not in interim results. Omit the parameter or specify
             an empty array if you do not need to spot keywords.
-        keywords_threshold: numeric, optional
+        keywords_threshold : numeric, optional
             A confidence value that is the lower bound for spotting a keyword.
             A word is considered to match a keyword if its confidence is
             greater than or equal to the threshold. Specify a probability
@@ -519,7 +482,7 @@ class SimpleAudioIndexer(object):
             specify the default value `None`.
             If you specify a threshold, you must also specify one or more
             keywords.
-        profanity_filter_for_US_results: bool
+        profanity_filter_for_US_results : bool
             Indicates whether profanity filtering is performed on the
             transcript. If true, the service filters profanity from all output
             except for keyword results by replacing inappropriate words with a
@@ -530,7 +493,7 @@ class SimpleAudioIndexer(object):
 
         References
         ----------
-        [1]: https://www.ibm.com/watson/developercloud/speech-to-text/api/v1/
+        .. [1] : https://ibm.com/watson/developercloud/speech-to-text/api/v1/
         """
         params = {'continuous': continuous,
                   'model': model,
@@ -543,7 +506,7 @@ class SimpleAudioIndexer(object):
         if keywords_threshold is not None:
             params['keywords_threshold'] = keywords_threshold
 
-        for audio_basename in self.list_audio_files(only_wav=False):
+        for audio_basename in self._list_audio_files():
             audio_name = ''.join(audio_basename.split('.')[:-1])
             if name is not None and audio_name != name:
                 continue
@@ -580,8 +543,9 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        audio_json: {str: [{str: [{str: str or nuneric}]}]}
+        audio_json : {str: [{str: [{str: str or nuneric}]}]}
             refer to Watson Speech API refrence
+
         Returns
         -------
         [[str, float, float]]
@@ -626,9 +590,9 @@ class SimpleAudioIndexer(object):
 
         Returns
         -------
-        unified_timestamp:  {str: [[str, float, float]]}
+        unified_timestamp : {str: [[str, float, float]]}
         """
-        staged_files = self.list_audio_files(sub_dir="staging")
+        staged_files = self._list_audio_files(sub_dir="staging")
         unified_timestamps = dict()
         for timestamp_basename in self.__timestamps:
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
@@ -669,7 +633,7 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        indexed_audio_file_abs_path:  str
+        indexed_audio_file_abs_path : str
         """
         with open(indexed_audio_file_abs_path, "wb") as f:
             f.write(str(self.get_timestamped_audio()))
@@ -678,7 +642,7 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        indexed_audio_file_abs_path:  str
+        indexed_audio_file_abs_path : str
         """
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
@@ -687,8 +651,8 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        candidate:  str
-        target:  str
+        candidate : str
+        target : str
 
         Returns
         --------
@@ -700,8 +664,8 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        sub:  str
-        sup:  str
+        sub : str
+        sup : str
 
         Returns
         -------
@@ -713,8 +677,8 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        sub:  str
-        sup:  str
+        sub : str
+        sup : str
 
         Returns
         -------
@@ -734,17 +698,17 @@ class SimpleAudioIndexer(object):
         appears in `sup` with the same order (index-wise).
         If advanced control sturctures are specified, the containment condition
         won't be checked.
-        The code for index checking is from [1].
+        The code for index checking is from [1]_.
 
         Parameters
         ----------
-        sub:  list
-        sup:  list
-        anagram: bool, optional
+        sub : list
+        sup : list
+        anagram : bool, optional
             Default is False
-        subsequence: bool, optional
+        subsequence : bool, optional
             Default is False
-        supersequence: bool, optional
+        supersequence : bool, optional
             Default is False
 
         Returns
@@ -753,8 +717,7 @@ class SimpleAudioIndexer(object):
 
         References
         ----------
-        [1]: 
-  `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
+        .. [1] : `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
         """
         def get_all_in(one, another):
             for element in one:
@@ -813,46 +776,46 @@ class SimpleAudioIndexer(object):
 
         return True
 
-    def search(self, query, audio_basename=None, case_sensitive=False,
-               subsequence=False, supersequence=False, timing_error=0.0,
-               anagram=False, missing_word_tolerance=0):
+    def search_gen(self, query, audio_basename=None, case_sensitive=False,
+                   subsequence=False, supersequence=False, timing_error=0.0,
+                   anagram=False, missing_word_tolerance=0):
         """
         A generator that searches for the `query` within the audiofiles of the
         src_dir.
 
         Parameters
         ----------
-        query:  str
+        query : str
             A string that'll be searched. It'll be splitted on spaces and then
             each word gets sequentially searched.
-        audio_basename:  str, optional
+        audio_basename : str, optional
             Search only within the given audio_basename.
-        case_sensitive  bool, optional
+        case_sensitive : bool, optional
             Default is False
-        subsequence:  bool, optional
+        subsequence : bool, optional
             `True` if it's not needed for the exact word be detected and larger
             strings that contain the given one are fine.
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        supersequence: bool, optional
+        supersequence : bool, optional
             `True` if it's not needed for the exact word be detected and
             smaller strings that are contained within the given one are fine.
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        anagram:  bool, optional
+        anagram : bool, optional
             `True` if it's acceptable for a complete permutation of the word to
             be found. e.g. "abcde" would be acceptable for "edbac".
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        timing_error:  None or float, optional
+        timing_error : None or float, optional
             Sometimes other words (almost always very small) would be detected
             between the words of the `query`. This parameter defines the
             timing difference/tolerance of the search.
             Default is 0.0 i.e. No timing error is tolerated.
-        missing_word_tolerance:  int, optional
+        missing_word_tolerance : int, optional
             The number of words that can be missed within the result.
             For example, if the query is "Some random text" and the tolerance
             value is `1`, then "Some text" would be a valid response.
@@ -865,9 +828,7 @@ class SimpleAudioIndexer(object):
 
         Yields
         ------
-        {"File Name": str,
-         "Query": `query`,
-         "Result": (float, float)}
+        {"File Name": str, "Query": `query`, "Result": (float, float)}
             The result of the search is returned as a tuple which is the value
             of the "Result" key. The first element of the tuple is the
             starting second of `query` and the last element is the ending
@@ -993,38 +954,38 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        queries:  [str] or str
+        queries : [str] or str
             A list of the strings that'll be searched. If type of queries is
             `str`, it'll be insterted into a list within the body of the
             method.
-        audio_basename:  str, optional
+        audio_basename : str, optional
             Search only within the given audio_basename.
         case_sensitive  bool
             Default is False
-        subsequence:  bool, optional
+        subsequence : bool, optional
             `True` if it's not needed for the exact word be detected and larger
             strings that contain the given one are fine.
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        supersequence: bool, optional
+        supersequence : bool, optional
             `True` if it's not needed for the exact word be detected and
             smaller strings that are contained within the given one are fine.
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        anagram:  bool, optional
+        anagram : bool, optional
             `True` if it's acceptable for a complete permutation of the word to
             be found. e.g. "abcde" would be acceptable for "edbac".
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
             Default is False.
-        timing_error:  None or float, optional
+        timing_error : None or float, optional
             Sometimes other words (almost always very small) would be detected
             between the words of the `query`. This parameter defines the
             timing difference/tolerance of the search.
             Default is 0.0 i.e. No timing error is tolerated.
-        missing_word_tolerance:  int, optional
+        missing_word_tolerance : int, optional
             The number of words that can be missed within the result.
             For example, if the query is "Some random text" and the tolerance
             value is `1`, then "Some text" would be a valid response.
@@ -1037,7 +998,7 @@ class SimpleAudioIndexer(object):
 
         Returns
         -------
-        search_results:  {str: {str: [(float, float)]}}
+        search_results : {str: {str: [(float, float)]}}
             A dictionary whose keys are queries and whose values are
             dictionaries whose keys are all the audiofiles in which the query
             is present and whose values are a list whose elements are 2-tuples
@@ -1075,7 +1036,8 @@ class SimpleAudioIndexer(object):
             queries = [queries]
         search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
         for query in queries:
-            search_gen = self.search(query=query, **search_gen_rest_of_kwargs)
+            search_gen = self.search_gen(query=query,
+                                         **search_gen_rest_of_kwargs)
             for search_result in search_gen:
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
