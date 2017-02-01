@@ -63,10 +63,9 @@ def result_template(query, filename, result):
     ("This", True, "test.wav", [0.01, 0.05]),
     ("this", False, "test.wav", [0.01, 0.05])
 ])
-def test_search(indexer, query, case_sensitive, filename_for_result, result,
-                subsequence, supersequence,
-                audio_basename, anagram,
-                missing_word_tolerance):
+def test_search_gen(indexer, query, case_sensitive, filename_for_result,
+                    result, subsequence, supersequence, audio_basename,
+                    anagram, missing_word_tolerance):
     if audio_basename == "specified":
         audio_basename = filename_for_result
     actual_kwargs = {
@@ -81,13 +80,13 @@ def test_search(indexer, query, case_sensitive, filename_for_result, result,
     expected_results = result_template(query, filename_for_result, result)
     if abs(missing_word_tolerance - (len(query.split(" ")) - 2)) < 0:
         with pytest.raises(AssertionError) as e:
-            actual_results = list(indexer.search(**actual_kwargs))
+            actual_results = list(indexer.search_gen(**actual_kwargs))
             assert str(e.value) == (
                 "The number of words that can be missing must be less than " +
                 "the total number of words within the query"
                 )
     else:
-        actual_results = list(indexer.search(**actual_kwargs))
+        actual_results = list(indexer.search_gen(**actual_kwargs))
         assert ((expected_results == actual_results) or
                 (expected_results in actual_results))
 
@@ -105,16 +104,16 @@ def test_search(indexer, query, case_sensitive, filename_for_result, result,
     ("This", True, "test.wav", [0.01, 0.05]),
     ("tis", False, "test.wav", [0.01, 0.05])
 ])
-def test_search_subsequence_extra(indexer, query, case_sensitive,
-                                  audio_basename, filename_for_result,
-                                  result):
+def test_search_gen_subsequence_extra(indexer, query, case_sensitive,
+                                      audio_basename, filename_for_result,
+                                      result):
     if audio_basename == "specified":
         audio_basename = filename_for_result
     expected_results = result_template(query, filename_for_result, result)
     actual_results = list(
-        indexer.search(query, audio_basename=audio_basename,
-                       case_sensitive=case_sensitive,
-                       subsequence=True))
+        indexer.search_gen(query, audio_basename=audio_basename,
+                           case_sensitive=case_sensitive,
+                           subsequence=True))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
 
@@ -130,16 +129,16 @@ def test_search_subsequence_extra(indexer, query, case_sensitive,
     ("This", True, "test.wav", [0.01, 0.05]),
     ("tHissss", False, "test.wav", [0.01, 0.05])
 ])
-def test_search_supersequence_extra(indexer, query, case_sensitive,
-                                    audio_basename, filename_for_result,
-                                    result):
+def test_search_gen_supersequence_extra(indexer, query, case_sensitive,
+                                        audio_basename, filename_for_result,
+                                        result):
     if audio_basename == "specified":
         audio_basename = filename_for_result
     expected_results = result_template(query, filename_for_result, result)
     actual_results = list(
-        indexer.search(query, audio_basename=audio_basename,
-                       case_sensitive=case_sensitive,
-                       supersequence=True))
+        indexer.search_gen(query, audio_basename=audio_basename,
+                           case_sensitive=case_sensitive,
+                           supersequence=True))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
 
@@ -155,16 +154,16 @@ def test_search_supersequence_extra(indexer, query, case_sensitive,
     ("This", True, "test.wav", [0.01, 0.05]),
     ("Htis", False, "test.wav", [0.01, 0.05])
 ])
-def test_search_anagram_extra(indexer, query, case_sensitive,
-                              audio_basename, filename_for_result,
-                              result):
+def test_search_gen_anagram_extra(indexer, query, case_sensitive,
+                                  audio_basename, filename_for_result,
+                                  result):
     if audio_basename == "specified":
         audio_basename = filename_for_result
     expected_results = result_template(query, filename_for_result, result)
     actual_results = list(
-        indexer.search(query, audio_basename=audio_basename,
-                       case_sensitive=case_sensitive,
-                       anagram=True))
+        indexer.search_gen(query, audio_basename=audio_basename,
+                           case_sensitive=case_sensitive,
+                           anagram=True))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
 
@@ -179,16 +178,16 @@ def test_search_anagram_extra(indexer, query, case_sensitive,
     ("This is some", True, 0.01, "test.wav", []),
     ("in our lives", False, 0.0, "small_audio.wav", [2.81, 3.89])
 ])
-def test_search_timing_error(indexer, query, case_sensitive, timing_error,
-                             audio_basename, filename_for_result,
-                             result):
+def test_search_gen_timing_error(indexer, query, case_sensitive, timing_error,
+                                 audio_basename, filename_for_result,
+                                 result):
     if audio_basename == "specified":
         audio_basename = filename_for_result
     expected_results = result_template(query, filename_for_result, result)
     actual_results = list(
-        indexer.search(query, audio_basename=audio_basename,
-                       case_sensitive=case_sensitive,
-                       timing_error=timing_error))
+        indexer.search_gen(query, audio_basename=audio_basename,
+                           case_sensitive=case_sensitive,
+                           timing_error=timing_error))
     assert ((expected_results == actual_results) or
             (expected_results
              in actual_results))
@@ -207,7 +206,7 @@ def test_search_timing_error(indexer, query, case_sensitive, timing_error,
     ("This is some", True, 1, "test.wav", [0.01, 0.2]),
     ("This garbage", True, 2, "test.wav", [0.01, 0.26]),
 ])
-def test_search_missing_word_tolerance(
+def test_search_gen_missing_word_tolerance(
         indexer, query, case_sensitive, missing_word_tolerance, audio_basename,
         filename_for_result, result):
     if audio_basename == "specified":
@@ -222,19 +221,19 @@ def test_search_missing_word_tolerance(
     expected_results = result_template(query, filename_for_result, result)
     if abs(missing_word_tolerance - (len(query.split(" ")) - 2)) < 0:
         with pytest.raises(AssertionError) as e:
-            actual_results = list(indexer.search(**actual_kwargs))
+            actual_results = list(indexer.search_gen(**actual_kwargs))
             assert str(e.value) == (
                 "The number of words that can be missing must be less than " +
                 "the total number of words within the query"
                 )
     else:
-        actual_results = list(indexer.search(**actual_kwargs))
+        actual_results = list(indexer.search_gen(**actual_kwargs))
         assert ((expected_results == actual_results) or
                 (expected_results
                 in actual_results))
 
 
-def test_search_mix_1(indexer):
+def test_search_gen_mix_1(indexer):
     actual_kwargs = {
         "query": "american calleddd entca",
         "case_sensitive": False,
@@ -244,6 +243,6 @@ def test_search_mix_1(indexer):
         "supersequence": True}
     expected_results = result_template(actual_kwargs["query"],
                                        "small_audio.wav", [0.21, 2.17])
-    actual_results = list(indexer.search(**actual_kwargs))
+    actual_results = list(indexer.search_gen(**actual_kwargs))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
