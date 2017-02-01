@@ -939,7 +939,8 @@ class SimpleAudioIndexer(object):
                             result = list()
                             query_cursor = 0
 
-                        query_cursor += 1
+                        else:
+                            query_cursor += 1
 
                     elif missed_words_so_far > missing_word_tolerance:
                         result = list()
