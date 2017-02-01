@@ -81,11 +81,11 @@ class SimpleAudioIndexer(object):
     list_audio_files(sub_dir, only_wav)
         Returns a list of audiofiles in a subdir or the self.src_dir whose
         formats are `wav`
-    get_audio_channels(abs_path_audio)
-    get_audio_sample_rate(abs_path_audio)
-    get_audio_sample_bit(abs_path_audio)
-    get_audio_duration_seconds(abs_path_audio)
-    get_audio_bit_rate(abs_path_audio)
+    get_audio_channels(audio_abs_path)
+    get_audio_sample_rate(audio_abs_path)
+    get_audio_sample_bit(audio_abs_path)
+    get_audio_duration_seconds(audio_abs_path)
+    get_audio_bit_rate(audio_abs_path)
     _seconds_to_HHMMSS(seconds)
         Retuns a string which is the hour, minute, second(milli) representation
         of the intput `seconds`
@@ -129,15 +129,16 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        username:           str
-        password:           str
-        src_dir             str
-                            Absolute path to the source directory of audio
-                            files such that the absolute path of the audio
-                            that'll be indexed would be
-                            `src_dir/audio_file.wav`
-        api_limit_bytes:    int
-        verbose:            Bool
+        username:  str
+        password:  str
+        src_dir:  str
+            Absolute path to the source directory of audio files such that the
+            absolute path of the audio that'll be indexed would be
+            `src_dir/audio_file.wav`
+        api_limit_bytes:  int, optional
+            default is 100000000
+        verbose:  bool, optional
+            default is False
         """
         self.username = username
         self.password = password
@@ -164,12 +165,22 @@ class SimpleAudioIndexer(object):
         return self.username
 
     def set_username(self, username):
+        """
+        Parameters
+        ----------
+        username:  str
+        """
         self.username = username
 
     def get_password(self):
         return self.password
 
     def set_password(self, password):
+        """
+        Parameters
+        ----------
+        password:  str
+        """
         self.password = password
 
     def _filtering_step(self, basename):
@@ -177,9 +188,9 @@ class SimpleAudioIndexer(object):
         Moves the audio file if the format is `wav` to `filtered` directory.
         Parameters
         ----------
-        basename    str
-                    A basename of `/home/random-guy/some-audio-file.wav` is
-                    `some-audio-file.wav`
+        basename: str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
         """
         name = ''.join(basename.split('.')[:-1])
         # May cause problems if wav is not less than 9 channels.
@@ -199,9 +210,9 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        basename    str
-                    A basename of `/home/random-guy/some-audio-file.wav` is
-                    `some-audio-file.wav`
+        basename:  str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
         """
         name = ''.join(basename.split('.')[:-1])
         # Checks the file size. It's better to use 95% of the allocated size
@@ -226,13 +237,13 @@ class SimpleAudioIndexer(object):
 
     def _prepare_audio(self, basename):
         """
-        prepares and stages the audio file to be indexed.
+        Prepares and stages the audio file to be indexed.
 
         Parameters
         ----------
-        basename    str
-                    A basename of `/home/random-guy/some-audio-file.wav` is
-                    `some-audio-file.wav`
+        basename: str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
         """
         self._filtering_step(basename)
         self._staging_step(basename)
@@ -241,13 +252,14 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        sub_dir         one of `needed_directories`
+        sub_dir:  one of `needed_directories`, optional
+            Default is "", which means it'll look through all of subdirs.
 
         Returns
         -------
-        audio_files     [str]
-                        A list whose elements are basenames of the present
-                        audiofiles whose formats are `wav`
+        audio_files: [str]
+            A list whose elements are basenames of the present audiofiles whose
+            formats are `wav`
         """
         audio_files = list()
         for possibly_audio_file in os.listdir("{}/{}".format(self.src_dir,
@@ -257,74 +269,74 @@ class SimpleAudioIndexer(object):
                 audio_files.append(possibly_audio_file)
         return audio_files
 
-    def get_audio_channels(self, abs_path_audio):
+    def get_audio_channels(self, audio_abs_path):
         """
         Parameters
         ----------
-        abs_path_audio      str
+        audio_abs_path: str
 
         Returns
         -------
-        channel_num         int
+        channel_num:  int
         """
         channel_num = int(
             subprocess.check_output(
                 ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
-                 ).format(abs_path_audio, "Channels"),
+                 ).format(audio_abs_path, "Channels"),
                 shell=True, universal_newlines=True).rstrip()
         )
         return channel_num
 
-    def get_audio_sample_rate(self, abs_path_audio):
+    def get_audio_sample_rate(self, audio_abs_path):
         """
         Parameters
         ----------
-        abs_path_audio      str
+        audio_abs_path:  str
 
         Returns
         -------
-        sample_rate         int
+        sample_rate:  int
         """
         sample_rate = int(
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
-                ).format(abs_path_audio, "Sample Rate"),
+                ).format(audio_abs_path, "Sample Rate"),
                shell=True, universal_newlines=True).rstrip()
         )
         return sample_rate
 
-    def get_audio_sample_bit(self, abs_path_audio):
+    def get_audio_sample_bit(self, audio_abs_path):
         """
         Parameters
         ----------
-        audio_abs_path      str
+        audio_abs_path:  str
 
         Returns
         -------
-        sample_bit          int
+        sample_bit:  int
         """
         sample_bit = int(
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
-                """grep -oh "^[^-]*" """).format(abs_path_audio, "Precision"),
+                """grep -oh "^[^-]*" """).format(audio_abs_path, "Precision"),
                shell=True, universal_newlines=True).rstrip()
         )
         return sample_bit
 
-    def get_audio_duration_seconds(self, abs_path_audio):
+    def get_audio_duration_seconds(self, audio_abs_path):
         """
         Parameters
         ----------
-        abs_path_audio      str
+        audio_abs_path:  str
 
         Returns
         -------
-        total_seconds       int
+        total_seconds:  int
         """
         HHMMSS_duration = subprocess.check_output(
             ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
              """grep -oh "^[^=]*" """).format(
-                abs_path_audio, "Duration"),
+                audio_abs_path, "Duration"),
             shell=True, universal_newlines=True).rstrip()
         total_seconds = sum(
             [float(x) * 60 ** (2 - i)
@@ -332,19 +344,19 @@ class SimpleAudioIndexer(object):
         )
         return total_seconds
 
-    def get_audio_bit_rate(self, abs_path_audio):
+    def get_audio_bit_rate(self, audio_abs_path):
         """
         Parameters
         -----------
-        abs_path_audio      str
+        audio_abs_path:  str
 
         Returns
         -------
-        bit_rate            int
+        bit_rate:  int
         """
         bit_Rate_formatted = subprocess.check_output(
             """sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""".format(
-                abs_path_audio, "Bit Rate"),
+                audio_abs_path, "Bit Rate"),
             shell=True, universal_newlines=True).rstrip()
         bit_rate = (
            lambda x:
@@ -362,12 +374,12 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        seconds         float
+        seconds:  float
 
         Returns
         -------
-        -               str
-                        Has the form <int>H<int>M<int>S.<float>
+        str
+            Has the form <int>H<int>M<int>S.<float>
         """
         less_than_second = seconds - floor(seconds)
         minutes, seconds = divmod(floor(seconds), 60)
@@ -379,10 +391,10 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         -----------
-        audio_abs_path      str
-        segment_abs_path    str
-        starting_second     int
-        ending_second       int
+        audio_abs_path:  str
+        segment_abs_path:  str
+        starting_second:  int
+        ending_second:  int
         """
         subprocess.Popen(["sox", str(audio_abs_path), str(segment_abs_path),
                           str(starting_second), str(ending_second)],
@@ -396,13 +408,12 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        audio_abs_path      str
-        results_abs_path    str
-                            A place for adding digits needs to be added prior
-                            the the format decleration i.e. name%03.wav.
-                            Here, we've added `*` at staging step, which we'll
-                            replace.
-        duration_seconds    int
+        audio_abs_path:  str
+        results_abs_path:  str
+            A place for adding digits needs to be added prior the the format
+            decleration i.e. name%03.wav. Here, we've added `*` at staging
+            step, which we'll replace.
+        duration_seconds: int
         """
         total_seconds = self.get_audio_duration_seconds(audio_abs_path)
         current_segment = 0
@@ -427,12 +438,12 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        audio_abs_path      str
-        results_abs_path    str
-                            A place for adding digits needs to be added prior
-                            the the format decleration i.e. name%03.wav
-        chunk_size          int
-                            Should be in bytes
+        audio_abs_path:  str
+        results_abs_path:  str
+            A place for adding digits needs to be added prior the the format
+            decleration i.e. name%03.wav
+        chunk_size:  int
+            Should be in bytes
         """
         sample_rate = self.get_audio_sample_rate(audio_abs_path)
         sample_bit = self.get_audio_sample_bit(audio_abs_path)
@@ -451,82 +462,75 @@ class SimpleAudioIndexer(object):
         """
         Implements a search-suitable interface for Watson speech API.
 
-        For more information visit:
-            https://www.ibm.com/watson/developercloud/speech-to-text/api/v1/
-        The explainations of the Parameters of this method (except for `name`)
-        has been taken from the API reference above, as well.
+        Some explaination of the parameters here have been taken from [1]
 
         Parameters
         ----------
-        name        str
-                    A specific filename to be indexed and is placed in src_dir
-                    The name of `audio.wav` would be `audio`
-        continuous  Bool
-                    Indicates whether multiple final results that represent
-                    consecutive phrases separated by long pauses are returned.
-                    If true, such phrases are returned; if false (the default),
-                    recognition ends after the first end-of-speech (EOS)
-                    incident is detected.
-        model       str
-                    The identifier of the model to be used for the recognition
-                    request:
-                        ar-AR_BroadbandModel
-                        en-UK_BroadbandModel
-                        en-UK_NarrowbandModel
-                        en-US_BroadbandModel (the default)
-                        en-US_NarrowbandModel
-                        es-ES_BroadbandModel
-                        es-ES_NarrowbandModel
-                        fr-FR_BroadbandModel
-                        ja-JP_BroadbandModel
-                        ja-JP_NarrowbandModel
-                        pt-BR_BroadbandModel
-                        pt-BR_NarrowbandModel
-                        zh-CN_BroadbandModel
-                        zh-CN_NarrowbandModel
-        word_confidence     str
-                            Indicates whether a confidence measure in the range
-                            of 0 to 1 is returned for each word.
-                            The default is True. (It's False in the original)
-        word_alternatives_threshold     numeric
-                                        A confidence value that is the lower
-                                        bound for identifying a hypothesis as a
-                                        possible word alternative (also known
-                                        as "Confusion Networks"). An
-                                        alternative word is considered if its
-                                        confidence is greater than or equal to
-                                        the threshold. Specify a probability
-                                        between 0 and 1 inclusive. No
-                                        alternative words are computed if you
-                                        omit the parameter or specify the
-                                        default value (null).
-        keywords    [str]
-                    A list of keywords to spot in the audio. Each keyword
-                    string can include one or more tokens. Keywords are
-                    spotted only in the final hypothesis, not in interim
-                    results. Omit the parameter or specify an empty array if
-                    you do not need to spot keywords.
-        keywords_threshold      numeric
-                                A confidence value that is the lower bound for
-                                spotting a keyword. A word is considered to
-                                match a keyword if its confidence is greater
-                                than or equal to the threshold. Specify a
-                                probability between 0 and 1 inclusive. No
-                                keyword spotting is performed if you omit the
-                                parameter or specify the default value (null).
-                                If you specify a threshold, you must also
-                                specify one or more keywords.
-        profanity_filter_for_US_results     bool
-                                            Indicates whether profanity
-                                            filtering is performed on the
-                                            transcript. If true (the default),
-                                            the service filters profanity from
-                                            all output except for keyword
-                                            results by replacing inappropriate
-                                            words with a series of asterisks.
-                                            If false, the service returns
-                                            results with no censoring. Applies
-                                            to US English transcription only.
+        name: str, optional
+            A specific filename to be indexed and is placed in src_dir
+            The name of `audio.wav` would be `audio`.
+            If `None` is selected, all the valid audio files would be indexed.
+            Default is None.
+        continuous: bool
+            Indicates whether multiple final results that represent consecutive
+            phrases separated by long pauses are returned.
+            If true, such phrases are returned; if false (the default),
+            recognition ends after the first end-of-speech (EOS) incident is
+            detected.
+            Default is True.
+        model:  {
+                    'ar-AR_BroadbandModel',
+                    'en-UK_BroadbandModel'
+                    'en-UK_NarrowbandModel',
+                    'en-US_BroadbandModel', (the default)
+                    'en-US_NarrowbandModel',
+                    'es-ES_BroadbandModel',
+                    'es-ES_NarrowbandModel',
+                    'fr-FR_BroadbandModel',
+                    'ja-JP_BroadbandModel',
+                    'ja-JP_NarrowbandModel',
+                    'pt-BR_BroadbandModel',
+                    'pt-BR_NarrowbandModel',
+                    'zh-CN_BroadbandModel',
+                    'zh-CN_NarrowbandModel'
+                 }
+            The identifier of the model to be used for the recognition
+            Default is 'en-US_BroadbandModel'
+        word_confidence:  bool
+            Indicates whether a confidence measure in the range of 0 to 1 is
+            returned for each word.
+            The default is True. (It's False in the original)
+        word_alternatives_threshold:  numeric
+            A confidence value that is the lower bound for identifying a
+            hypothesis as a possible word alternative (also known as
+            "Confusion Networks"). An alternative word is considered if its
+            confidence is greater than or equal to the threshold. Specify a
+            probability between 0 and 1 inclusive.
+        keywords:  [str], optional
+            A list of keywords to spot in the audio. Each keyword string can
+            include one or more tokens. Keywords are spotted only in the final
+            hypothesis, not in interim results. Omit the parameter or specify
+            an empty array if you do not need to spot keywords.
+        keywords_threshold: numeric, optional
+            A confidence value that is the lower bound for spotting a keyword.
+            A word is considered to match a keyword if its confidence is
+            greater than or equal to the threshold. Specify a probability
+            between 0 and 1 inclusive. No keyword spotting is performed if you
+            specify the default value `None`.
+            If you specify a threshold, you must also specify one or more
+            keywords.
+        profanity_filter_for_US_results: bool
+            Indicates whether profanity filtering is performed on the
+            transcript. If true, the service filters profanity from all output
+            except for keyword results by replacing inappropriate words with a
+            series of asterisks.
+            If false, the service returns results with no censoring. Applies
+            to US English transcription only.
+            Default is False.
+
+        References
+        ----------
+        [1]: https://www.ibm.com/watson/developercloud/speech-to-text/api/v1/
         """
         params = {'continuous': continuous,
                   'model': model,
@@ -576,15 +580,14 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        audio_json      {str: [{str: [{str: str or nuneric}]}]}
-                        (refer to Watson Speech API refrence)
+        audio_json: {str: [{str: [{str: str or nuneric}]}]}
+            refer to Watson Speech API refrence
         Returns
         -------
-        -               [[str, float, float]]
-                        A list whose members are lists. Each member list has
-                        three elements. First one is a word. Second is the
-                        starting second and the third is the ending second of
-                        that word in the original audio file.
+        [[str, float, float]]
+        A list whose members are lists. Each member list has three elements.
+        First one is a word. Second is the starting second and the third is the
+        ending second of that word in the original audio file.
         """
         try:
             timestamps_of_sentences = [
@@ -623,7 +626,7 @@ class SimpleAudioIndexer(object):
 
         Returns
         -------
-        unified_timestamp   {str: [[str, float, float]]}
+        unified_timestamp:  {str: [[str, float, float]]}
         """
         staged_files = self.list_audio_files(sub_dir="staging")
         unified_timestamps = dict()
@@ -660,10 +663,23 @@ class SimpleAudioIndexer(object):
         return unified_timestamps
 
     def save_indexed_audio(self, indexed_audio_file_abs_path):
+        """
+        Writes the corrected timestamps to a file. Timestamps are a python
+        dictionary.
+
+        Parameters
+        ----------
+        indexed_audio_file_abs_path:  str
+        """
         with open(indexed_audio_file_abs_path, "wb") as f:
             f.write(str(self.get_timestamped_audio()))
 
     def load_indexed_audio(self, indexed_audio_file_abs_path):
+        """
+        Parameters
+        ----------
+        indexed_audio_file_abs_path:  str
+        """
         with open(indexed_audio_file_abs_path, "rb") as f:
             self.__timestamps = literal_eval(f.read())
 
@@ -671,12 +687,12 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        candidate     str
-        target        str
+        candidate:  str
+        target:  str
 
         Returns
         --------
-        Bool
+        bool
         """
         return (sorted(candidate) == sorted(target))
 
@@ -684,12 +700,12 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        sub          str
-        sup          str
+        sub:  str
+        sup:  str
 
         Returns
         -------
-        Bool
+        bool
         """
         return bool(re.search(".*".join(sub), sup))
 
@@ -697,12 +713,12 @@ class SimpleAudioIndexer(object):
         """
         Parameters
         ----------
-        sub          str
-        sup          str
+        sub:  str
+        sup:  str
 
         Returns
         -------
-        Bool
+        bool
         """
         return self._is_subsequence_of(sub, sup)
 
@@ -718,18 +734,27 @@ class SimpleAudioIndexer(object):
         appears in `sup` with the same order (index-wise).
         If advanced control sturctures are specified, the containment condition
         won't be checked.
-
-        The code for index checking is from:
-  `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
+        The code for index checking is from [1].
 
         Parameters
         ----------
-        sub           list
-        sup           list
+        sub:  list
+        sup:  list
+        anagram: bool, optional
+            Default is False
+        subsequence: bool, optional
+            Default is False
+        supersequence: bool, optional
+            Default is False
 
         Returns
         -------
-        Bool
+        bool
+
+        References
+        ----------
+        [1]: 
+  `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
         """
         def get_all_in(one, another):
             for element in one:
@@ -797,69 +822,63 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        query           str
-                        A string that'll be searched. It'll be splitted on
-                        spaces and then each word gets sequentially searched
-        audio_basename  str
-                        Search only within the given audio_basename
-        case_sensitive  Bool
-                        Default is False
-        subsequence     bool
-                        `True` if it's not needed for the exact word be
-                        detected and larger strings that contain the given one
-                        are fine. Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        supersequence   Bool
-                        `True` if it's not needed for the exact word be
-                        detected and smaller strings that are contained
-                        within the given one are fine. Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        anagram         Bool
-                        `True` if it's acceptable for a complete permutation
-                        of the word to be found. e.g. "abcde" would be
-                        acceptable for "edbac". Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        timing_error    None or float
-                        Sometimes other words (almost always very small) would
-                        be detected between the words of the `query`. This
-                        parameter defines the timing difference/tolerance of
-                        the search. By default it's 0.1, which means it'd be
-                        acceptable if the next word of the `query` is found
-                        before 0.1 seconds of the end of the previous word.
-                        If set to `None`, the error won't be read.
-        missing_word_tolerance   int
-                                 The number of words that can be missed within
-                                 the result. For example, if the query is
-                                 "Some random text" and the tolerance value
-                                 is `1`, then "Some text" would be a valud
-                                 response.
-                                 Note that the first and last words cannot
-                                 be missed. Also, there'll be an error if
-                                 the value is more than the number of available
-                                 words. For the example above, any value more
-                                 than 1 would have given an error (since
-                                 there's only one word i.e. "random" that can
-                                 be missed)
+        query:  str
+            A string that'll be searched. It'll be splitted on spaces and then
+            each word gets sequentially searched.
+        audio_basename:  str, optional
+            Search only within the given audio_basename.
+        case_sensitive  bool, optional
+            Default is False
+        subsequence:  bool, optional
+            `True` if it's not needed for the exact word be detected and larger
+            strings that contain the given one are fine.
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        supersequence: bool, optional
+            `True` if it's not needed for the exact word be detected and
+            smaller strings that are contained within the given one are fine.
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        anagram:  bool, optional
+            `True` if it's acceptable for a complete permutation of the word to
+            be found. e.g. "abcde" would be acceptable for "edbac".
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        timing_error:  None or float, optional
+            Sometimes other words (almost always very small) would be detected
+            between the words of the `query`. This parameter defines the
+            timing difference/tolerance of the search.
+            Default is 0.0 i.e. No timing error is tolerated.
+        missing_word_tolerance:  int, optional
+            The number of words that can be missed within the result.
+            For example, if the query is "Some random text" and the tolerance
+            value is `1`, then "Some text" would be a valid response.
+            Note that the first and last words cannot be missed. Also,
+            there'll be an error if the value is more than the number of
+            available words. For the example above, any value more than 1
+            would have given an error (since there's only one word i.e.
+            "random" that can be missed)
+            Default is 0.
 
         Yields
         ------
-        -               {"File Name": str,
-                         "Query": `query`,
-                         "Result": (float, float)}
-                         The result of the search is returned as a tuple which
-                         is the value of the "Result" key. The first element
-                         of the tuple is the starting second of `query` and
-                         the last element is the ending second of `query`
+        {"File Name": str,
+         "Query": `query`,
+         "Result": (float, float)}
+            The result of the search is returned as a tuple which is the value
+            of the "Result" key. The first element of the tuple is the
+            starting second of `query` and the last element is the ending
+            second of `query`
 
         Raises
         ------
-        AssertionError       If `missing_word_tolerance` value is more than
-                             the total number of words in the query minus 2
-                             (since the first and the last word cannot be
-                              removed)
+        AssertionError
+            If `missing_word_tolerance` value is more than the total number of
+            words in the query minus 2 (since the first and the last word
+            cannot be removed)
         """
         query_words = list(
             filter(
@@ -974,69 +993,62 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        queries         [str]
-                        A list of the strings that'll be searched. If type of
-                        queries is `str`, it'll be insterted into a list within
-                        the body of the method.
-        audio_basename str
-                        Search only within the given audio_basename
-        case_sensitive  Bool
-                        Default is False
-        subsequence     bool
-                        `True` if it's not needed for the exact word be
-                        detected and larger strings that contain the given one
-                        are fine. Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        supersequence   Bool
-                        `True` if it's not needed for the exact word be
-                        detected and smaller strings that are contained
-                        within the given one are fine. Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        anagram         Bool
-                        `True` if it's acceptable for a complete permutation
-                        of the word to be found. e.g. "abcde" would be
-                        acceptable for "edbac". Default is False.
-                        If the query is a sentences with multiple words, it'll
-                        be considered for each word, not the whole sentence.
-        timing_error    float or None
-                        Sometimes other words (almost always very small) would
-                        be detected between the words of the elements of
-                        `queries`. This parameter defines the timing
-                        difference/tolerance of the search. By default it's
-                        0.1 which means it'd be acceptable if the next word of
-                        an element of `queries` is found before 0.1 seconds of
-                        the end of the previous word.
-                        If set to `None`, the error won't be considered.
-        missing_word_tolerance   int
-                                 The number of words that can be missed within
-                                 the result. For example, if the query is
-                                 "Some random text" and the tolerance value
-                                 is `1`, then "Some text" would be a valud
-                                 response.
-                                 Note that the first and last words cannot
-                                 be missed. Also, there'll be an error if
-                                 the value is more than the number of available
-                                 words. For the example above, any value more
-                                 than 1 would have given an error (since
-                                 there's only one word i.e. "random" that can
-                                 be missed)
+        queries:  [str] or str
+            A list of the strings that'll be searched. If type of queries is
+            `str`, it'll be insterted into a list within the body of the
+            method.
+        audio_basename:  str, optional
+            Search only within the given audio_basename.
+        case_sensitive  bool
+            Default is False
+        subsequence:  bool, optional
+            `True` if it's not needed for the exact word be detected and larger
+            strings that contain the given one are fine.
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        supersequence: bool, optional
+            `True` if it's not needed for the exact word be detected and
+            smaller strings that are contained within the given one are fine.
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        anagram:  bool, optional
+            `True` if it's acceptable for a complete permutation of the word to
+            be found. e.g. "abcde" would be acceptable for "edbac".
+            If the query is a sentences with multiple words, it'll be
+            considered for each word, not the whole sentence.
+            Default is False.
+        timing_error:  None or float, optional
+            Sometimes other words (almost always very small) would be detected
+            between the words of the `query`. This parameter defines the
+            timing difference/tolerance of the search.
+            Default is 0.0 i.e. No timing error is tolerated.
+        missing_word_tolerance:  int, optional
+            The number of words that can be missed within the result.
+            For example, if the query is "Some random text" and the tolerance
+            value is `1`, then "Some text" would be a valid response.
+            Note that the first and last words cannot be missed. Also,
+            there'll be an error if the value is more than the number of
+            available words. For the example above, any value more than 1
+            would have given an error (since there's only one word i.e.
+            "random" that can be missed)
+            Default is 0.
 
         Returns
         -------
-        search_results  {str: {str: [(float, float)]}}
-                        A dictionary whose keys are queries and whose values
-                        are dictionaries whose keys are all the audiofiles in
-                        which the query is present and whose values are a list
-                        whose elements are 2-tuples whose first element is
-                        the starting second of the query and whose values are
-                        the ending second. e.g.
-                        {"apple": {"fruits.wav" : [(1.1, 1.12)]}}
+        search_results:  {str: {str: [(float, float)]}}
+            A dictionary whose keys are queries and whose values are
+            dictionaries whose keys are all the audiofiles in which the query
+            is present and whose values are a list whose elements are 2-tuples
+            whose first element is the starting second of the query and whose
+            values are the ending second. e.g.
+            {"apple": {"fruits.wav" : [(1.1, 1.12)]}}
 
         Raises
         ------
-        TypeError       if `queries` is neither a list nor a str
+        TypeError
+            if `queries` is neither a list nor a str
         """
 
         search_gen_rest_of_kwargs = {
