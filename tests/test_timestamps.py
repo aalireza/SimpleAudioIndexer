@@ -1,12 +1,7 @@
 from SimpleAudioIndexer import SimpleAudioIndexer as sai
-import sys
 import os
 import pytest
 
-if sys.version_info < (3, 0):
-    import mock
-else:
-    from unittest import mock
 
 timestamp = {
     'test.wav': [
