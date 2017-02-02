@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
 """
-Copyright 2016-2017 Alireza Rafiei
+  Copyright 2016-2017 Alireza Rafiei
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may
-not use this file except in compliance with the License. You may obtain
-a copy of the License at:
+  Licensed under the Apache License, Version 2.0 (the "License"); you may
+  not use this file except in compliance with the License. You may obtain
+  a copy of the License at:
 
-    http://www.apache.org/licenses/LICENSE-2.0
+      http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 """
 
 
@@ -47,7 +47,7 @@ class SimpleAudioIndexer(object):
         absolute path of the audio that'll be indexed would be
         `src_dir/audio_file.wav`
     verbose :  bool, optional
-        `True` if progress needs to be printed. Default is False.
+        `True` if progress needs to be printed. Default is `False`.
     api_limit_bytes :  int, optional
         It holds the API limitation of Watson speech api http sessionless
         which is 100Mbs. Default is 100000000.
@@ -438,15 +438,17 @@ class SimpleAudioIndexer(object):
         name : str, optional
             A specific filename to be indexed and is placed in src_dir
             The name of `audio.wav` would be `audio`.
+
             If `None` is selected, all the valid audio files would be indexed.
-            Default is None.
+            Default is `None`.
         continuous : bool
             Indicates whether multiple final results that represent consecutive
             phrases separated by long pauses are returned.
             If true, such phrases are returned; if false (the default),
             recognition ends after the first end-of-speech (EOS) incident is
             detected.
-            Default is True.
+
+            Default is `True`.
         model :  {
                     'ar-AR_BroadbandModel',
                     'en-UK_BroadbandModel'
@@ -464,10 +466,12 @@ class SimpleAudioIndexer(object):
                     'zh-CN_NarrowbandModel'
                  }
             The identifier of the model to be used for the recognition
+
             Default is 'en-US_BroadbandModel'
         word_confidence : bool
             Indicates whether a confidence measure in the range of 0 to 1 is
             returned for each word.
+
             The default is True. (It's False in the original)
         word_alternatives_threshold : numeric
             A confidence value that is the lower bound for identifying a
@@ -475,17 +479,26 @@ class SimpleAudioIndexer(object):
             "Confusion Networks"). An alternative word is considered if its
             confidence is greater than or equal to the threshold. Specify a
             probability between 0 and 1 inclusive.
+
+            Default is `0.9`.
         keywords : [str], optional
             A list of keywords to spot in the audio. Each keyword string can
             include one or more tokens. Keywords are spotted only in the final
-            hypothesis, not in interim results. Omit the parameter or specify
-            an empty array if you do not need to spot keywords.
+            hypothesis, not in interim results.
+
+            Omit the parameter or specify `None` if you do not need to spot
+            keywords.
+
+            Default is `None`
         keywords_threshold : numeric, optional
             A confidence value that is the lower bound for spotting a keyword.
             A word is considered to match a keyword if its confidence is
             greater than or equal to the threshold. Specify a probability
-            between 0 and 1 inclusive. No keyword spotting is performed if you
-            specify the default value `None`.
+            between 0 and 1 inclusive.
+
+            No keyword spotting is performed if you specify the default value
+            `None`.
+
             If you specify a threshold, you must also specify one or more
             keywords.
         profanity_filter_for_US_results : bool
@@ -493,9 +506,11 @@ class SimpleAudioIndexer(object):
             transcript. If true, the service filters profanity from all output
             except for keyword results by replacing inappropriate words with a
             series of asterisks.
+
             If false, the service returns results with no censoring. Applies
             to US English transcription only.
-            Default is False.
+
+            Default is `False`.
 
         References
         ----------
@@ -550,14 +565,15 @@ class SimpleAudioIndexer(object):
         Parameters
         ----------
         audio_json : {str: [{str: [{str: str or nuneric}]}]}
-            refer to Watson Speech API refrence
+            Refer to Watson Speech API refrence [1]_
 
         Returns
         -------
         [[str, float, float]]
-        A list whose members are lists. Each member list has three elements.
-        First one is a word. Second is the starting second and the third is the
-        ending second of that word in the original audio file.
+            A list whose members are lists. Each member list has three
+            elements. First one is a word. Second is the starting second and
+            the third is the ending second of that word in the original
+            audio file.
         """
         try:
             timestamps_of_sentences = [
@@ -711,11 +727,11 @@ class SimpleAudioIndexer(object):
         sub : list
         sup : list
         anagram : bool, optional
-            Default is False
+            Default is `False`
         subsequence : bool, optional
-            Default is False
+            Default is `False`
         supersequence : bool, optional
-            Default is False
+            Default is `False`
 
         Returns
         -------
@@ -796,30 +812,39 @@ class SimpleAudioIndexer(object):
             each word gets sequentially searched.
         audio_basename : str, optional
             Search only within the given audio_basename.
+
+            Default is `None`
         case_sensitive : bool, optional
-            Default is False
+            Default is `False`
         subsequence : bool, optional
             `True` if it's not needed for the exact word be detected and larger
             strings that contain the given one are fine.
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         supersequence : bool, optional
             `True` if it's not needed for the exact word be detected and
             smaller strings that are contained within the given one are fine.
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         anagram : bool, optional
             `True` if it's acceptable for a complete permutation of the word to
             be found. e.g. "abcde" would be acceptable for "edbac".
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         timing_error : None or float, optional
             Sometimes other words (almost always very small) would be detected
             between the words of the `query`. This parameter defines the
             timing difference/tolerance of the search.
+
             Default is 0.0 i.e. No timing error is tolerated.
         missing_word_tolerance : int, optional
             The number of words that can be missed within the result.
@@ -830,6 +855,7 @@ class SimpleAudioIndexer(object):
             available words. For the example above, any value more than 1
             would have given an error (since there's only one word i.e.
             "random" that can be missed)
+
             Default is 0.
 
         Yields
@@ -966,30 +992,39 @@ class SimpleAudioIndexer(object):
             method.
         audio_basename : str, optional
             Search only within the given audio_basename.
-        case_sensitive  bool
-            Default is False
+
+            Default is `None`.
+        case_sensitive : bool
+            Default is `False`
         subsequence : bool, optional
             `True` if it's not needed for the exact word be detected and larger
             strings that contain the given one are fine.
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         supersequence : bool, optional
             `True` if it's not needed for the exact word be detected and
             smaller strings that are contained within the given one are fine.
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         anagram : bool, optional
             `True` if it's acceptable for a complete permutation of the word to
             be found. e.g. "abcde" would be acceptable for "edbac".
+
             If the query is a sentences with multiple words, it'll be
             considered for each word, not the whole sentence.
-            Default is False.
+
+            Default is `False`.
         timing_error : None or float, optional
             Sometimes other words (almost always very small) would be detected
             between the words of the `query`. This parameter defines the
             timing difference/tolerance of the search.
+
             Default is 0.0 i.e. No timing error is tolerated.
         missing_word_tolerance : int, optional
             The number of words that can be missed within the result.
@@ -1000,6 +1035,7 @@ class SimpleAudioIndexer(object):
             available words. For the example above, any value more than 1
             would have given an error (since there's only one word i.e.
             "random" that can be missed)
+
             Default is 0.
 
         Returns
@@ -1065,6 +1101,8 @@ class SimpleAudioIndexer(object):
             A regex pattern.
         audio_basename : str, optional
             Search only within the given audio_basename.
+
+            Default is `False`.
 
         Returns
         -------
