@@ -17,7 +17,8 @@ timestamp = {
                  ['is', 0.05, 0.08],
                  ['some', 0.1, 0.2],
                  ['garbage', 0.21, 0.26],
-                 ['This', 0.3, 0.4]]
+                 ['This', 0.3, 0.4],
+                 ['in', 0.4, 0.5]]
 }
 
 
@@ -246,3 +247,50 @@ def test_search_gen_mix_1(indexer):
     actual_results = list(indexer.search_gen(**actual_kwargs))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
+
+
+def test_search_all(indexer):
+    query = "in"
+    assert indexer.search_all(query) == {
+        "in": {
+            "small_audio.wav": [(2.81, 2.93)],
+            "test.wav": [(0.4, 0.5)]
+        }
+    }
+
+
+def test_search_regexp_1(indexer):
+    assert indexer.search_regexp(r'in') == {
+        r"in": {
+            "small_audio.wav": [(2.81, 2.93)],
+            "test.wav": [(0.4, 0.5)]
+        }
+    }
+
+
+def test_search_regexp_2(indexer):
+    assert indexer.search_regexp(r' [a-z][a-z][a-z] ') == {
+        " are ": {
+            "small_audio.wav": [(1.07, 1.25)]
+        },
+        " our ": {
+            "small_audio.wav": [(2.93, 3.09)]
+        }
+    }
+
+
+@pytest.mark.parametrize(("audio_basename"), [
+    None, "small_audio.wav", "test.wav"
+])
+def test_search_regexp_3(indexer, audio_basename):
+    if audio_basename == "test.wav":
+        expected_result = {}
+    else:
+        expected_result = {
+            " in our ": {
+                "small_audio.wav": [(2.81, 3.09)]
+            },
+        }
+
+    assert indexer.search_regexp(r' [a-z][a-z] [a-z][a-z][a-z] ',
+                                 audio_basename) == expected_result
