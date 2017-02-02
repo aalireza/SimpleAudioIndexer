@@ -3,4 +3,5 @@ recursive-include tests *.py
 recursive-include tests *.txt
 recursive-include docs *.rst
 recursive-include docs *.py
+recursive-include docs *.png
 prune docs/_build
