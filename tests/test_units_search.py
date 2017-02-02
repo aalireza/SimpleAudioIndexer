@@ -27,9 +27,10 @@ def indexer(monkeypatch):
     monkeypatch.setattr(os.path, 'basename', lambda path: "ffmpeg")
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
-    indexer_obj = sai(os.environ["SAI_USERNAME"],
-                      os.environ["SAI_PASSWORD"],
-                      os.environ["SAI_SRC_DIR"])
+    indexer_obj = sai("username", "password", "src_dir")
+    # indexer_obj = sai(os.environ["SAI_USERNAME"],
+    #                   os.environ["SAI_PASSWORD"],
+    #                   os.environ["SAI_SRC_DIR"])
     monkeypatch.setattr(indexer_obj, 'get_timestamped_audio',
                         lambda: timestamp)
     indexer_obj.__timestamps = timestamp
