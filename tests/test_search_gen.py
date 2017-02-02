@@ -28,9 +28,6 @@ def indexer(monkeypatch):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
     indexer_obj = sai("username", "password", "src_dir")
-    # indexer_obj = sai(os.environ["SAI_USERNAME"],
-    #                   os.environ["SAI_PASSWORD"],
-    #                   os.environ["SAI_SRC_DIR"])
     monkeypatch.setattr(indexer_obj, 'get_timestamped_audio',
                         lambda: timestamp)
     indexer_obj.__timestamps = timestamp
@@ -248,50 +245,3 @@ def test_search_gen_mix_1(indexer):
     actual_results = list(indexer.search_gen(**actual_kwargs))
     assert ((expected_results == actual_results) or
             (expected_results in actual_results))
-
-
-def test_search_all(indexer):
-    query = "in"
-    assert indexer.search_all(query) == {
-        "in": {
-            "small_audio.wav": [(2.81, 2.93)],
-            "test.wav": [(0.4, 0.5)]
-        }
-    }
-
-
-def test_search_regexp_1(indexer):
-    assert indexer.search_regexp(r'in') == {
-        r"in": {
-            "small_audio.wav": [(2.81, 2.93)],
-            "test.wav": [(0.4, 0.5)]
-        }
-    }
-
-
-def test_search_regexp_2(indexer):
-    assert indexer.search_regexp(r' [a-z][a-z][a-z] ') == {
-        " are ": {
-            "small_audio.wav": [(1.07, 1.25)]
-        },
-        " our ": {
-            "small_audio.wav": [(2.93, 3.09)]
-        }
-    }
-
-
-@pytest.mark.parametrize(("audio_basename"), [
-    None, "small_audio.wav", "test.wav"
-])
-def test_search_regexp_3(indexer, audio_basename):
-    if audio_basename == "test.wav":
-        expected_result = {}
-    else:
-        expected_result = {
-            " in our ": {
-                "small_audio.wav": [(2.81, 3.09)]
-            },
-        }
-
-    assert indexer.search_regexp(r' [a-z][a-z] [a-z][a-z][a-z] ',
-                                 audio_basename) == expected_result
