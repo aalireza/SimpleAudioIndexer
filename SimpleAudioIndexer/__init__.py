@@ -70,12 +70,18 @@ class SimpleAudioIndexer(object):
         correct result.
     save_indexed_audio(indexed_audio_file_abs_path)
     load_indexed_audio(indexed_audio_file_abs_path)
-    search_gen(query, audio_basename, case_sensitive, subsequence,
-               supersequence, timing_error, anagram, missing_word_tolerance)
-    search_all(queries, audio_basename, case_sensitive, subsequence,
-               supersequence, timing_error, anagram, missing_word_tolerance)
-        Returns a dictionary of all results of all of the queries for all of
-        the audio files.
+    search_gen(query, audio_basename=None, case_sensitive=False,
+               subsequence=False, supersequence=False, timing_error=0.0,
+               anagram=False, missing_word_tolerance=0)
+        A generator which returns a valid search result at each iteraiton.
+    search_all(queries, audio_basename=None, case_sensitive=False,
+               subsequence=False, supersequence=False, timing_error=0.0,
+               anagram=False, missing_word_tolerance=0)
+        Returns a dictionary of all results of all of the queries for either
+        all of the audio files or the `audio_basename`.
+    search_regexp(pattern, audio_basename=None)
+        Returns a dictionary of all results which matched `pattern` for either
+        all of the audio files or the `auio_basename`
     """
 
     def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
@@ -1041,4 +1047,108 @@ class SimpleAudioIndexer(object):
             for search_result in search_gen:
                 search_results[query][
                     search_result["File Name"]].append(search_result["Result"])
+        return search_results
+
+    def search_regexp(self, pattern, audio_basename=None):
+        """
+        First joins the words of the word_blocks of timestamps with space, per
+        audio_basename. Then matches `pattern` and calculates the index of the
+        word_block where the first and last word of the matched result appears
+        in. Then presents the output like `search_all` method.
+
+        Note that the leading and trailing spaces from the matched results
+        would be removed while determining which word_block they belong to.
+
+        Parameters
+        ----------
+        pattern : str
+            A regex pattern.
+        audio_basename : str, optional
+            Search only within the given audio_basename.
+
+        Returns
+        -------
+        search_results : {str: {str: [(float, float)]}}
+            A dictionary whose keys are queries and whose values are
+            dictionaries whose keys are all the audiofiles in which the query
+            is present and whose values are a list whose elements are 2-tuples
+            whose first element is the starting second of the query and whose
+            values are the ending second. e.g.
+            {"apple": {"fruits.wav" : [(1.1, 1.12)]}}
+        """
+
+        def index_in_transcript_to_word_block(index, audio_basename):
+            """
+            Calculates the word block index by having the index in
+            transcription
+
+            Parameters
+            ----------
+            index : int
+            audio_basename : str
+
+            Retrun
+            ------
+            [str, float, float]
+                The corresponding word block to `index`
+            """
+            space_indexes = [i for i, x in enumerate(
+                transcription[audio_basename]) if x == " "]
+            block_number = (lambda index: (
+                0 if index <= space_indexes[0] else
+                len(space_indexes) if index >= space_indexes[-1] else
+                [
+                    i + 1
+                    for i in range(len(space_indexes) - 1)
+                    if ((space_indexes[i] <= index < space_indexes[i + 1]) or
+                        (space_indexes[i] < index <= space_indexes[i + 1]))
+                ][0])
+            )(index)
+            return timestamps[audio_basename][block_number]
+
+        # Refer to the explaination in self.search_all
+        class PrettyDefaultDict(defaultdict):
+            __repr__ = dict.__repr__
+
+        timestamps = self.get_timestamped_audio()
+        if audio_basename is not None:
+            timestamps = {audio_basename: timestamps[audio_basename]}
+        transcription = {
+            audio_basename: ' '.join(
+                [word_block[0] for word_block in timestamps[audio_basename]]
+            ) for audio_basename in timestamps
+        }
+        match_map = map(
+            lambda audio_basename: tuple((
+                audio_basename,
+                re.finditer(pattern, transcription[audio_basename])
+            )),
+            transcription.keys()
+        )
+        search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
+        for audio_basename, match_iter in match_map:
+            for match in match_iter:
+                print(match.group(),
+                      match.span(),
+                      transcription["small_audio.wav"][14])
+                search_results[match.group()][audio_basename].append(
+                    tuple([
+                        # Removing the leading white spaces and passing the
+                        # index for the first non-whitespace char in the
+                        # matched result.
+                        index_in_transcript_to_word_block(
+                            match.span()[0] + (
+                                len(match.group()) -
+                                len(match.group().rstrip())
+                            ), audio_basename)[1],
+                        # Removing the trailing white spaces and passing the
+                        # index for the last non-whitespace char in the matched
+                        # result.
+                        index_in_transcript_to_word_block(
+                            match.span()[1] - (
+                                len(match.group()) -
+                                len(match.group().lstrip()) + 1
+                            ), audio_basename)[-1]
+                    ])
+                )
         return search_results
