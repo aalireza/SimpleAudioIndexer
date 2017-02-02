@@ -1,10 +1,15 @@
 from setuptools import setup
 from os import path
+import sys
 import codecs
-import ConfigParser
+
+if sys.version_info < (3, 0):
+    import ConfigParser as configparser
+else:
+    import configparser
 
 here = path.abspath(path.dirname(__file__))
-meta_parser = ConfigParser.RawConfigParser()
+meta_parser = configparser.RawConfigParser()
 meta_parser.read(path.join(here, 'META.txt'))
 
 with codecs.open(path.join(here, 'README.rst'), "rb", "utf-8") as f:
@@ -40,7 +45,10 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: Unix",
         'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
     keywords=["audio", "indexing", "search", "ibm", "watson", "anagram",
               "subsequence", "supersequence", "sequence", "timestamp"],
