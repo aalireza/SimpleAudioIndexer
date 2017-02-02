@@ -534,7 +534,7 @@ class SimpleAudioIndexer(object):
             self._prepare_audio(audio_basename)
             if name is not None and audio_name == name:
                 break
-        for staging_audio_name in self.list_audio_files(sub_dir="staging"):
+        for staging_audio_name in self._list_audio_files(sub_dir="staging"):
             original_audio_name = ''.join(
                 staging_audio_name.split('.')[:-1]
             )[:-3]
