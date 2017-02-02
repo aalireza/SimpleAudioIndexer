@@ -629,7 +629,7 @@ class SimpleAudioIndexer(object):
                 seconds_passed = 0
                 for split_index, splitted_file_timestamp in enumerate(
                   self.__timestamps[timestamp_basename]):
-                    total_seconds = self.get_audio_duration_seconds(
+                    total_seconds = self._get_audio_duration_seconds(
                         "{}/staging/{}".format(
                             self.src_dir,
                             staged_splitted_file_basenames[split_index]
