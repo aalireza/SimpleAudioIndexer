@@ -33,8 +33,30 @@ import subprocess
 
 class SimpleAudioIndexer(object):
     """
-    Should write overall process focusing on src_dir events
+    Indexes audio and searches for a string within it or matches a regex
+    pattern.
 
+    Audio files that are intended to be indexed should be in wav format, placed
+    in a same directory and the absolute path to that directory should be
+    passed as `src_dir` upon initialization.
+
+    Call the method `index_audio` prior to searching or accessing timestamps,
+    unless you have saved the data for your previously indexed audio (in that
+    case, `load_indexed_audio` method must be used)
+
+    You may see timestamps of the words that have been indexed so far sorted
+    by audio files and the time of their occurance, by calling the method
+    `get_audio_timestamps`.
+
+    You may saved the indexed audio data (which is basically just the time-
+    regularized timestamps) via `save_indexed_audio` method and load it back
+    via `load_indexed_audio`
+
+    Do exhustive search with the method `search_all`, do iterative search with
+    the method `search_gen` or do regex based search with the method
+    `search_regexp`
+
+    For more information see the docs and read usage guide.
 
     Attributes
     ----------
@@ -739,7 +761,8 @@ class SimpleAudioIndexer(object):
 
         References
         ----------
-        .. [1] : `https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
+        .. [1] : `
+   https://stackoverflow.com/questions/35964155/checking-if-list-is-a-sublist`
         """
         def get_all_in(one, another):
             for element in one:
@@ -1115,34 +1138,47 @@ class SimpleAudioIndexer(object):
             {"apple": {"fruits.wav" : [(1.1, 1.12)]}}
         """
 
-        def index_in_transcript_to_word_block(index, audio_basename):
+        def indexes_in_transcript_to_start_end_second(index_tup,
+                                                      audio_basename):
             """
-            Calculates the word block index by having the index in
-            transcription
+            Calculates the word block index by having the beginning and ending
+            index of the matched result from the transcription
 
             Parameters
             ----------
-            index : int
+            index_tup : (int, tup)
+                index_tup is of the form tuple(index_start, index_end)
             audio_basename : str
 
             Retrun
             ------
-            [str, float, float]
-                The corresponding word block to `index`
+            [float, float]
+                The time of the output of the matched result. Derived from two
+                separate word blocks belonging to the beginning and the end of
+                the index_start and index_end.
             """
             space_indexes = [i for i, x in enumerate(
                 transcription[audio_basename]) if x == " "]
-            block_number = (lambda index: (
-                0 if index <= space_indexes[0] else
-                len(space_indexes) if index >= space_indexes[-1] else
-                [
-                    i + 1
-                    for i in range(len(space_indexes) - 1)
-                    if ((space_indexes[i] <= index < space_indexes[i + 1]) or
-                        (space_indexes[i] < index <= space_indexes[i + 1]))
-                ][0])
-            )(index)
-            return timestamps[audio_basename][block_number]
+            space_indexes.sort(reverse=True)
+            index_start, index_end = index_tup
+            # re.finditer returns the ending index by one more
+            index_end -= 1
+            while transcription[audio_basename][index_start] == " ":
+                index_start += 1
+            while transcription[audio_basename][index_end] == " ":
+                index_end -= 1
+            block_number_start = 0
+            block_number_end = len(space_indexes)
+            for block_cursor, space_index in enumerate(space_indexes):
+                if index_start > space_index:
+                    block_number_start = (len(space_indexes) - block_cursor)
+                    break
+            for block_cursor, space_index in enumerate(space_indexes):
+                if index_end > space_index:
+                    block_number_end = (len(space_indexes) - block_cursor)
+                    break
+            return (timestamps[audio_basename][block_number_start][1],
+                    timestamps[audio_basename][block_number_end][-1])
 
         # Refer to the explaination in self.search_all
         class PrettyDefaultDict(defaultdict):
@@ -1166,27 +1202,11 @@ class SimpleAudioIndexer(object):
         search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
         for audio_basename, match_iter in match_map:
             for match in match_iter:
-                print(match.group(),
-                      match.span(),
-                      transcription["small_audio.wav"][14])
                 search_results[match.group()][audio_basename].append(
-                    tuple([
-                        # Removing the leading white spaces and passing the
-                        # index for the first non-whitespace char in the
-                        # matched result.
-                        index_in_transcript_to_word_block(
-                            match.span()[0] + (
-                                len(match.group()) -
-                                len(match.group().rstrip())
-                            ), audio_basename)[1],
-                        # Removing the trailing white spaces and passing the
-                        # index for the last non-whitespace char in the matched
-                        # result.
-                        index_in_transcript_to_word_block(
-                            match.span()[1] - (
-                                len(match.group()) -
-                                len(match.group().lstrip()) + 1
-                            ), audio_basename)[-1]
-                    ])
+                    tuple(
+                            indexes_in_transcript_to_start_end_second(
+                                match.span(), audio_basename
+                            )
+                    )
                 )
         return search_results

@@ -34,17 +34,28 @@ def indexer(monkeypatch):
     return indexer_obj
 
 
-def test_search_regexp_1(indexer):
-    assert indexer.search_regexp(r'in') == {
-        r"in": {
-            "small_audio.wav": [(2.81, 2.93)],
-            "test.wav": [(0.4, 0.5)]
+@pytest.mark.parametrize(("pattern"), [r'in', r'in ', r' in ', r' in'])
+def test_search_regexp_1(indexer, pattern):
+    if pattern in {r" in ", r"in "}:
+        assert indexer.search_regexp(pattern) == {
+            pattern: {
+                "small_audio.wav": [(2.81, 2.93)],
+            }
         }
-    }
+    else:
+        assert indexer.search_regexp(pattern) == {
+            pattern: {
+                "small_audio.wav": [(2.81, 2.93)],
+                "test.wav": [(0.4, 0.5)]
+            }
+        }
 
 
-def test_search_regexp_2(indexer):
-    assert indexer.search_regexp(r' [a-z][a-z][a-z] ') == {
+@pytest.mark.parametrize(("pattern"), [
+    r' [a-z][a-z][a-z] '
+])
+def test_search_regexp_2(indexer, pattern):
+    assert indexer.search_regexp(pattern) == {
         " are ": {
             "small_audio.wav": [(1.07, 1.25)]
         },
@@ -54,10 +65,30 @@ def test_search_regexp_2(indexer):
     }
 
 
+@pytest.mark.parametrize(("pattern"), [
+    r'[a-z][a-z][a-z]',
+])
+def test_search_regexp_3(indexer, pattern):
+    expected_result = {
+        "are": {
+            "small_audio.wav": [(1.07, 1.25)]
+        },
+        "our": {
+            "small_audio.wav": [(2.93, 3.09)]
+        }
+    }
+    assert len(indexer.search_regexp(pattern)) > len(expected_result)
+    assert set(expected_result.keys()).issubset(set(
+        indexer.search_regexp(pattern).keys()))
+
+
 @pytest.mark.parametrize(("audio_basename"), [
     None, "small_audio.wav", "test.wav"
 ])
-def test_search_regexp_3(indexer, audio_basename):
+@pytest.mark.parametrize(("pattern"), [
+    r' [a-z][a-z] [a-z][a-z][a-z] ',
+])
+def test_search_regexp_4(indexer, pattern, audio_basename):
     if audio_basename == "test.wav":
         expected_result = {}
     else:
@@ -66,6 +97,25 @@ def test_search_regexp_3(indexer, audio_basename):
                 "small_audio.wav": [(2.81, 3.09)]
             },
         }
+    assert indexer.search_regexp(pattern, audio_basename) == expected_result
 
-    assert indexer.search_regexp(r' [a-z][a-z] [a-z][a-z][a-z] ',
-                                 audio_basename) == expected_result
+
+@pytest.mark.parametrize(("audio_basename"), [
+    None, "small_audio.wav", "test.wav"
+])
+@pytest.mark.parametrize(("pattern"), [
+    r'[a-z][a-z] [a-z][a-z][a-z]'
+])
+def test_search_regexp_5(indexer, pattern, audio_basename):
+    if audio_basename == "test.wav":
+        expected_result = {}
+    else:
+        expected_result = {
+            "in our": {
+                "small_audio.wav": [(2.81, 3.09)]
+            },
+        }
+    assert len(indexer.search_regexp(pattern,
+                                     audio_basename)) > len(expected_result)
+    assert set(expected_result.keys()).issubset(set(
+        indexer.search_regexp(pattern).keys()))
