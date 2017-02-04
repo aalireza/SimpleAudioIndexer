@@ -9,7 +9,7 @@ Welcome to Simple Audio Indexer's documentation!
 .. figure:: images/sai_logo.png
    :align:  center
 
-Simple Audio Indexer, (or SAI, to be shorter!) is a Python library and
+Simple Audio Indexer, (or `sai`_, to be shorter!) is a Python library and
 command-line tool that enables one to search for a word or a phrase within an
 audio file.
 
@@ -21,6 +21,7 @@ either use the currently implemented control structures on the search methods,
 or for the developer to define her own patterns in regex and match them to
 contents of the audio file.
 
+`sai`_ is open-source, licensed under `Apache v2.0 <https://github.com/aalireza/SimpleAudioIndexer/blob/master/LICENSE>`_.
 
 
 .. toctree::
@@ -31,10 +32,8 @@ contents of the audio file.
 
    usage
 
-   contributing
-
    reference
-   
+
 
 
 
@@ -44,3 +43,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+.. _sai: https://github.com/aalireza/SimpleAudioIndexer
