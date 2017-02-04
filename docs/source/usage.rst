@@ -10,7 +10,7 @@ There are basically two ways to use `sai`_:
 2. `As a library for developers <#as-a-python-library>`_. (recommended)
 
 
-As a command-line script
+As a command line script
 ------------------------
 Note that currently the command-line script is very limited in its
 functionality and not all the available methods have been implemented for the
