@@ -1,11 +1,11 @@
 SimpleAudioIndexer
 ==================
 
-.. image:: docs/source/images/sai_logo.png
-   :alt: Simple Audio Indexer: Index audio files and search for a word/phrase or match regex patterns 
-   :align: center
+.. image:: https://github.com/aalireza/SimpleAudioIndexer/blob/master/docs/source/images/sai_logo.png
+         :alt: Simple Audio Indexer: Index audio files and search for a word/phrase or match regex patterns 
+         :align: center
 
-|build| |docs| |license| |python| |wheel|
+|build| |license| |docs| |python| |wheel|
 
 
 - `Description <#description>`_
@@ -37,7 +37,7 @@ What can it do?
 
 Documentation
 -------------
-To read the documentation, visit `here`.
+To read the documentation, visit `here <http://simpleaudioindexer.readthedocs.io/>`__.
 
 Installation
 ------------
@@ -48,7 +48,7 @@ Open up a terminal and enter:
 
 
 You should also be installing `sox` and get IBM Watson API credentials. To do
-so, visit `here`.
+so, visit `here <https://simpleaudioindexer.readthedocs.io/installation/>`__.
 
 There's a `dockerfile <https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/Dockerfile>`_
 included withing the repo if you're unable to do a native installation or are
@@ -64,7 +64,7 @@ Open up a terminal and enter:
    pip uninstall SimpleAudioIndexer
 
 Uninstalling `sox`, however, is dependent upon whether you're on a Linux or Mac
-system. For more information, visit `here`.
+system. For more information, visit `here <https://simpleaudioindexer.readthedocs.io/installation/#uninstall>`__.
 
 
 Command-line Usage
@@ -90,7 +90,7 @@ You could also match a regex pattern like below:
 Which would search for three letters words starting with T.
 
 You may also save and load the indexed data from the command line script. For
-more information, visit `here`.
+more information, visit `here <https://simpleaudioindexer.readthedocs.io/usage/#as-a-command-line-script>`__.
 
 
 Library Usage
@@ -148,7 +148,7 @@ Finally, you could do a regex search!
 
 
 There are more functionalities implemented. For detailed explainations, read the
-documentation `here`.
+documentation `here <https://simpleaudioindexer.readthedocs.io/usage/#as-a-python-library>`__.
 
 Nice to implement in the future
 --------------------------------
@@ -177,16 +177,22 @@ This project is licensed under the Apache v2.0 license - see the `LICENCE <LICEN
 file for more details.
 
 
-
-
 .. |license| image:: https://img.shields.io/pypi/l/SimpleAudioIndexer.svg
+            :target: LICENSE
+            :alt: Apache v2.0 License
    
-.. |docs| images:: https://readthedocs.org/aalireza/SimpleAudioIndexer/badge/?version=latest
+.. |docs| image:: https://readthedocs.org/projects/simpleaudioindexer/badge/?version=latest
+         :target: http://simpleaudioindexer.readthedocs.io/?badge=latest
+         :alt: Documentation Status
 
-.. |build| image:: https://travis-ci.org/aalireza/SimpleAudioIndexer
+.. |build| image:: https://travis-ci.org/aalireza/SimpleAudioIndexer.svg?branch=master
+          :target: https://travis-ci.org/aalireza/SimpleAudioIndexer
+          :alt: Build status
 
 .. |python| image:: https://img.shields.io/pypi/pyversions/SimpleAudioIndexer.svg
+           :alt: Python 2,7, 3,3, 3.4, 3.5, 3.6 supported
 
 .. |wheel| image:: https://img.shields.io/pypi/wheel/SimpleAudioIndexer.svg 
+          :alt: Wheel ready
 
 .. _Documentation: https://github.com/aalireza/SimpleAudioIndexer/docs
