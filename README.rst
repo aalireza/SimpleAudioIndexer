@@ -139,8 +139,7 @@ Or, say you wanted to look for a phrase but there's a timing gap and the indexer
 didn't pick it up right, you could specify `timing_error`. Or, say some word is
 completely missed, then you could specify `missing_word_tolerance` etc.
 
-For a full list, see the API reference `here <./reference.html
-#SimpleAudioIndexer.SimpleAudioIndexer.search_gen>`__
+For a full list, see the API reference `here <https://simpleaudioindexer.readthedocs.io/reference/#SimpleAudioIndexer.SimpleAudioIndexer.search_gen>`__
 
 
 You could also call `search_all` method to have search for a list of queries
@@ -178,7 +177,7 @@ Contributing
 -------------
 
 Should you want to contribute code or ideas, file a bug request or give
-feedback, Visit the `CONTRIBUTING <CONTRIBUTING.rst>`_ file.
+feedback, Visit the `CONTRIBUTING <https://github.com/aalireza/SimpleAudioIndexer/CONTRIBUTING.rst>`_ file.
 
 Authors
 -------
@@ -191,12 +190,12 @@ to this project.
 License
 -------
 
-This project is licensed under the Apache v2.0 license - see the `LICENCE <LICENSE>`_
+This project is licensed under the Apache v2.0 license - see the `LICENCE <https://github.com/aalireza/SimpleAudioIndexer/LICENSE>`_
 file for more details.
 
 
 .. |license| image:: https://img.shields.io/pypi/l/SimpleAudioIndexer.svg
-            :target: LICENSE
+            :target: https://github.com/aalireza/SimpleAudioIndexer/LICENSE
             :alt: Apache v2.0 License
    
 .. |docs| image:: https://readthedocs.org/projects/simpleaudioindexer/badge/?version=latest
@@ -208,9 +207,11 @@ file for more details.
           :alt: Build status
 
 .. |python| image:: https://img.shields.io/pypi/pyversions/SimpleAudioIndexer.svg
+           :target: https://github.com/aalireza/SimpleAudioIndexer
            :alt: Python 2,7, 3,3, 3.4, 3.5, 3.6 supported
 
 .. |wheel| image:: https://img.shields.io/pypi/wheel/SimpleAudioIndexer.svg 
+          :target: https://github.com/aalireza/SimpleAudioIndexer
           :alt: Wheel ready
 
 .. _Documentation: https://github.com/aalireza/SimpleAudioIndexer/docs
