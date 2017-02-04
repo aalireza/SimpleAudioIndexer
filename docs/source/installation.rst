@@ -107,7 +107,7 @@ enable you to get a terminal in that container.
 
 We assume that you have `docker`_ installed and functional on your system.
 
-Download the `Dockerfile.txt`_ from the `sai`_ repo.
+Download the `Dockerfile.txt`_ from the `sai`_ 's repository.
 
 Open up a terminal and `cd` into the directory that contains the docker file.
 Then, enter the command below:
@@ -140,7 +140,7 @@ Now copy the Container-ID of `sai-docker`. Then, in that new terminal enter:
 
 
 Right now you should be having shell access within `sai-docker` container and
-should be able to run `sai` in the command line or import it in a python repl.
+should be able to run `sai` in the command line or import it in a python REPL.
 
 To stop the docker process, exit the shell you've got in the container and open
 up a new terminal in your system and enter:

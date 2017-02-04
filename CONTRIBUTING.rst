@@ -4,7 +4,7 @@ Contributing
 .. _issue: https://github.com/aalireza/SimpleAudioIndexer/issues
 
 First, Tahnk you very much for taking the time to make a contribution! Below you may find
-the guildlines.
+the guidelines.
 
 
 Bug Reports
