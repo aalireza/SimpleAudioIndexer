@@ -129,7 +129,7 @@ You could have a searching generator:
 .. code-block:: python
 
   >>> searcher = indexer.search_gen(query="hello")
-  # If you're on python 2.7, instead of below, do print searcher.next()
+  # If you're on python 2.7, instead of below, do >>> print searcher.next()
   >>> print(next(searcher))
   {"Query": "hello", "File Name": "audio.wav", "Result": [(0.01, 0.05)]
 
