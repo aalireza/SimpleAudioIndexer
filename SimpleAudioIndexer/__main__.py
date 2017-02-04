@@ -58,39 +58,26 @@ def Main():
     def cli_script_wrapped(indexer):
         if not load_data:
             if audio_name is None:
-                print(1)
                 indexer.index_audio(model=model)
             else:
-                print(2)
                 indexer.index_audio(model=model, name=audio_name)
         if save_data:
-            print(3)
             indexer.save_indexed_audio(save_data)
         if show_timestamps:
-            print(4)
             pprint(indexer.get_timestamped_audio())
         if audio_name is not None:
-            print(5)
             if word is not None:
-                print(6)
                 pprint(indexer.search_all(
                     word, audio_basename="{}.wav".format(audio_name)))
             else:
-                print(7)
                 pprint(indexer.search_regexp(
                     pattern, audio_basename="{}.wav".format(audio_name)))
         else:
-            print(8)
             if word is not None:
-                print(9)
                 pprint(indexer.search_all(word))
             else:
-                print(10)
                 pprint(indexer.search_regexp(pattern))
 
-
-    print(username, password, src_dir, word, pattern, show_timestamps,
-     audio_name, model, verbose, save_data, load_data)
     if load_data is not None:
         indexer = SimpleAudioIndexer(username, password, src_dir,
                                      verbose=verbose)
