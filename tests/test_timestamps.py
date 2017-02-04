@@ -58,7 +58,6 @@ expected_result = {
 
 @pytest.fixture(autouse=True)
 def indexer(monkeypatch):
-    monkeypatch.setattr(os.path, 'basename', lambda path: "ffmpeg")
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
     indexer_obj = sai("username", "password", "src_dir")
