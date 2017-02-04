@@ -29,6 +29,11 @@ import os
 import re
 import requests
 import subprocess
+import sys
+
+if sys.version_info >= (3, 0):
+    unicode = str
+    long = int
 
 
 class SimpleAudioIndexer(object):
@@ -139,9 +144,10 @@ class SimpleAudioIndexer(object):
         Creates the needed directories for audio processing. It'll be called
         even if not in a context manager.
         """
-        for directory in self._needed_directories:
-            if not os.path.exists("{}/{}".format(self.src_dir, directory)):
-                os.mkdir("{}/{}".format(self.src_dir, directory))
+        if self.src_dir is not None:
+            for directory in self._needed_directories:
+                if not os.path.exists("{}/{}".format(self.src_dir, directory)):
+                    os.mkdir("{}/{}".format(self.src_dir, directory))
         return self
 
     def __exit__(self, *args):
@@ -149,8 +155,9 @@ class SimpleAudioIndexer(object):
         Removes the works of __enter__. Will only be called if in a context
         manager.
         """
-        for directory in self._needed_directories:
-            rmtree("{}/{}".format(self.src_dir, directory))
+        if self.src_dir is not None:
+            for directory in self._needed_directories:
+                rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_username(self):
         return self.username
@@ -611,6 +618,26 @@ class SimpleAudioIndexer(object):
             print(audio_json)
             print("The resulting request from Watson was unintelligible.")
 
+    def _word_block_validator(self, possibly_word_block):
+        """
+        A word block is of the form [str, float, float].
+
+        Parameters
+        ----------
+        possibly_word_block : object
+
+        Returns
+        -------
+        bool
+        """
+        return (
+            type(possibly_word_block) is list and
+            len(possibly_word_block) == 3 and
+            type(possibly_word_block[0]) in [str, unicode] and
+            type(possibly_word_block[1]) in [int, long, float] and
+            type(possibly_word_block[2]) in [int, long, float]
+        )
+
     def get_timestamped_audio(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
@@ -627,7 +654,7 @@ class SimpleAudioIndexer(object):
         whose values are lists corresponding to different blocks of 100Mbs or
         less splitted audio files and each list is then composed of lists of
         word blocks. So the signature of self.__timestamps would be
-        {str: [[[str, floatm float]]]} which one dimension more than the output
+        {str: [[[str, float, float]]]} which one dimension more than the output
         of this method - since here we don't differentiate between different
         splits of an audio file and we put the result of all splits in a single
         list.
@@ -636,6 +663,14 @@ class SimpleAudioIndexer(object):
         -------
         unified_timestamp : {str: [[str, float, float]]}
         """
+        if all([self._word_block_validator(possibly_word_block)
+                for audio_basename in self.__timestamps
+                for possibly_word_block in self.__timestamps[audio_basename]]):
+            # Returns the already save timestamps, if they are time regular
+            # and/or have been loaded (which necessarily makes them time
+            # regulated)
+            return self.__timestamps
+
         staged_files = self._list_audio_files(sub_dir="staging")
         unified_timestamps = dict()
         for timestamp_basename in self.__timestamps:
