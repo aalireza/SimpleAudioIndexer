@@ -12,7 +12,8 @@ here = path.abspath(path.dirname(__file__))
 meta_parser = configparser.RawConfigParser()
 meta_parser.read(path.join(here, 'META.txt'))
 
-long_description = codecs.open(path.join(here, 'README.rst'), 'r').read()
+with codecs.open(path.join(here, 'README.rst'), 'r') as f:
+    long_description = f.read()
 
 
 setup(
