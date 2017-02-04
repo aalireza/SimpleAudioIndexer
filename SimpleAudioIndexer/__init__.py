@@ -194,7 +194,8 @@ class SimpleAudioIndexer(object):
         # May cause problems if wav is not less than 9 channels.
         if basename.split('.')[-1] == "wav":
             if self.verbose:
-                print("Copying to {}/filtered".format(name, self.src_dir))
+                print("Found wave! Copying to {}/filtered/{}".format(
+                    self.src_dir, basename))
             subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
                               "{}/filtered/{}.wav".format(self.src_dir, name)],
                              universal_newlines=True).communicate()
@@ -223,13 +224,13 @@ class SimpleAudioIndexer(object):
                     name, self.api_limit_bytes))
             self._split_audio_by_size(
                 "{}/filtered/{}.wav".format(self.src_dir, name),
-                "{}/staged/{}*.wav".format(self.src_dir, name),
+                "{}/staging/{}*.wav".format(self.src_dir, name),
                 self.api_limit_bytes * 95 / 100)
         else:
             if self.verbose:
                 print("{}'s size is fine. Moving to staging...'".format(name))
-            subprocess.Popen(("mv {}/filtered/{}.wav " +
-                             "{}/staging/{}000.wav").format(
+            subprocess.Popen((
+                "mv {}/filtered/{}.wav {}/staging/{}000.wav").format(
                                  self.src_dir, name, self.src_dir, name),
                              shell=True, universal_newlines=True).communicate()
 
@@ -315,7 +316,7 @@ class SimpleAudioIndexer(object):
         """
         sample_bit = int(
            subprocess.check_output(
-               ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
+               ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ 
                 """grep -oh "^[^-]*" """).format(audio_abs_path, "Precision"),
                shell=True, universal_newlines=True).rstrip()
         )
@@ -332,7 +333,7 @@ class SimpleAudioIndexer(object):
         total_seconds : int
         """
         HHMMSS_duration = subprocess.check_output(
-            ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ +
+            ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """
              """grep -oh "^[^=]*" """).format(
                 audio_abs_path, "Duration"),
             shell=True, universal_newlines=True).rstrip()
@@ -385,17 +386,18 @@ class SimpleAudioIndexer(object):
         return "{}H{}M{}S.{}".format(hours, minutes, seconds, less_than_second)
 
     def _audio_segment_extractor(self, audio_abs_path, segment_abs_path,
-                                 starting_second, ending_second):
+                                 starting_second, duration):
         """
         Parameters
         -----------
         audio_abs_path : str
         segment_abs_path : str
         starting_second : int
-        ending_second : int
+        duration : int
         """
-        subprocess.Popen(["sox", str(audio_abs_path), str(segment_abs_path),
-                          str(starting_second), str(ending_second)],
+
+        subprocess.Popen(["sox",  str(audio_abs_path), str(segment_abs_path),
+                          "trim", str(starting_second), str(duration)],
                          universal_newlines=True).communicate()
 
     def _split_audio_by_duration(self, audio_abs_path,
@@ -424,8 +426,10 @@ class SimpleAudioIndexer(object):
                 audio_abs_path,
                 results_abs_path.replace("*", "{:03d}".format(
                     current_segment)),
-                starting_second=current_segment, ending_second=ending_second
+                starting_second=current_segment, duration=(ending_second -
+                                                           current_segment)
             )
+            current_segment += 1
 
     def _split_audio_by_size(self, audio_abs_path, results_abs_path,
                              chunk_size):
@@ -573,16 +577,16 @@ class SimpleAudioIndexer(object):
                 "{}/staging/{}".format(
                     self.src_dir, staging_audio_name), "rb") as f:
                 if self.verbose:
-                    print("Reading {}...".format(staging_audio_name))
+                    print("Uploading {}...".format(staging_audio_name))
                 response = requests.post(
-                    url=("https://stream.watsonplatform.net/" +
+                    url=("https://stream.watsonplatform.net/"
                          "speech-to-text/api/v1/recognize"),
                     auth=(self.get_username(), self.get_password()),
                     headers={'content-type': 'audio/wav'},
                     data=f.read(),
                     params=params)
                 if self.verbose:
-                    print("Indexing {}...".format(original_audio_name))
+                    print("Indexing {}...".format(staging_audio_name))
                 self.__timestamps[original_audio_name + ".wav"].append(
                     self._timestamp_extractor(json.loads(response.text))
                 )
@@ -610,7 +614,7 @@ class SimpleAudioIndexer(object):
                 for i in range(len(audio_json['results']))
             ]
             return [
-                [word[0], float(word[1]), float(word[2])]
+                [word[0], round(float(word[1]), 2), round(float(word[2]), 2)]
                 for sentence_block in timestamps_of_sentences
                 for word in sentence_block
             ]
@@ -694,8 +698,8 @@ class SimpleAudioIndexer(object):
                     )
                     unified_timestamp += map(
                         lambda word: [word[0],
-                                      word[1] + seconds_passed,
-                                      word[2] + seconds_passed],
+                                      round(word[1] + seconds_passed, 2),
+                                      round(word[2] + seconds_passed, 2)],
                         splitted_file_timestamp
                     )
                     seconds_passed += total_seconds
@@ -943,8 +947,8 @@ class SimpleAudioIndexer(object):
         )
         assert abs(missing_word_tolerance -
                    (len(query_words) - 2)) >= 0, (
-            "The number of words that can be missing must be less than " +
-            "the total number of words within the query minus the first and " +
+            "The number of words that can be missing must be less than "
+            "the total number of words within the query minus the first and "
             "the last word."
         )
         timestamps = self.get_timestamped_audio()
