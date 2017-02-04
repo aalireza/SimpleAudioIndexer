@@ -162,7 +162,7 @@ Nice to implement in the future
 Contributing
 -------------
 Should you want to contribute code or ideas, file a bug request or give
-feedback, Visit the `CONTRIBUTING <CONTRIBUTING>`_ file.
+feedback, Visit the `CONTRIBUTING <CONTRIBUTING.rst>`_ file.
 
 Authors
 -------
