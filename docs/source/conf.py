@@ -33,10 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath('..')))
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'numpydoc',
-              'sphinx.ext.coverage',
-              'sphinx.ext.ifconfig',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.githubpages']
+              'sphinx.ext.coverage']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
