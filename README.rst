@@ -3,6 +3,7 @@ SimpleAudioIndexer
 
 .. image:: docs/source/images/sai_logo.png
          :alt: Simple Audio Indexer: Index audio files and search for a word/phrase or match regex patterns 
+         :target: https://github.com/aalireza/SimpleAudioIndexer
          :align: center
 
 |build| |license| |docs| |python| |wheel|
