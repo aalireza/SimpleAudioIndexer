@@ -1,32 +1,36 @@
 SimpleAudioIndexer
 ==================
 
-.. image:: https://github.com/aalireza/SimpleAudioIndexer/blob/master/docs/source/images/sai_logo.png
+.. image:: docs/source/images/sai_logo.png
          :alt: Simple Audio Indexer: Index audio files and search for a word/phrase or match regex patterns 
          :align: center
 
 |build| |license| |docs| |python| |wheel|
 
 
-- `Description <#description>`_
-- `What can it do? <#what-can-it-do>`_
-- `Documentation <#documentation>`_
-- `Installation <#installation>`_
-- `Uninstallation <#uninstallation>`_
-- `Command-line Usage <#command-line-usage>`_
-- `Nice to implement in the future <#nice-to-implement-in-the-future>`_
-- `Contributing <#contributing>`_
-- `Authors <#authors>`_
-- `License <#license>`_
+- `Description <#description>`__
+- `What can it do? <#what-can-it-do>`__
+- `Documentation <#documentation>`__
+- `Installation <#installation>`__
+- `Uninstallation <#uninstallation>`__
+- `Command-line Usage <#command-line-usage>`__
+- `Nice to implement in the future <#nice-to-implement-in-the-future>`__
+- `Contributing <#contributing>`__
+- `Authors <#authors>`__
+- `License <#license>`__
+
 
 Description
 ------------
+
 This is a Python library and command-line tool that helps you search for a word
 or a phrase within an audio file (wav format). It also builts upon the initial
 searching capability and provides some [so-called] advanced searching abilities!
 
+
 What can it do?
 ---------------
+
 + Index audio files and save/load the results.
 + Searching within audio files in multiple languages (default is English)
 + Define a timing error for your queries to handle discrepencies.
@@ -37,11 +41,15 @@ What can it do?
 
 Documentation
 -------------
+
 To read the documentation, visit `here <http://simpleaudioindexer.readthedocs.io/>`__.
+
 
 Installation
 ------------
+
 Open up a terminal and enter:
+
 ::
 
   pip install SimpleAudioIndexer
@@ -57,6 +65,7 @@ on a Windows system.
 
 Uninstallation
 --------------
+
 Open up a terminal and enter:
 
 ::
@@ -71,7 +80,9 @@ Command-line Usage
 ------------------
 
 Prepare a directory that contains your audio files (`wav` format). Then
+
 open up a terminal and enter:
+
 ::
 
    sai -u USERNAME -p PASSWORD -d SRC_DIR -s "apple"
@@ -83,6 +94,7 @@ What comes after `-s` switch, is your query. With the command above, you just
 searched for "apple" inside those audio files!
 
 You could also match a regex pattern like below:
+
 ::
 
    sai -u USERNAME -p PASSWORD -d SRC_DIR -s " T[a-z][a-z] "
@@ -95,6 +107,7 @@ more information, visit `here <https://simpleaudioindexer.readthedocs.io/usage/#
 
 Library Usage
 --------------
+
 .. code-block:: python
 
   >>> from SimpleAudioIndexer import SimpleAudioIndexer as sai
@@ -150,8 +163,10 @@ Finally, you could do a regex search!
 There are more functionalities implemented. For detailed explainations, read the
 documentation `here <https://simpleaudioindexer.readthedocs.io/usage/#as-a-python-library>`__.
 
+
 Nice to implement in the future
 --------------------------------
+
 - Uploading in parallel
 - More control structures for searching (Typos, phoneme based approximation of
   words using CMU_DICT or NLTK etc.)
@@ -161,11 +176,13 @@ Nice to implement in the future
 
 Contributing
 -------------
+
 Should you want to contribute code or ideas, file a bug request or give
 feedback, Visit the `CONTRIBUTING <CONTRIBUTING.rst>`_ file.
 
 Authors
 -------
+
 + **Alireza Rafiei** - `aalireza <https://github.com/aalireza>`_
 
 See also the list of `contributors <https://github.com/aalireza/SimpleAudioIndexer/graphs/contributors>`_
@@ -173,6 +190,7 @@ to this project.
 
 License
 -------
+
 This project is licensed under the Apache v2.0 license - see the `LICENCE <LICENSE>`_
 file for more details.
 
