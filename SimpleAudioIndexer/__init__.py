@@ -714,7 +714,7 @@ class SimpleAudioIndexer(object):
         ----------
         indexed_audio_file_abs_path : str
         """
-        with open(indexed_audio_file_abs_path, "wb") as f:
+        with open(indexed_audio_file_abs_path, "w") as f:
             f.write(str(self.get_timestamped_audio()))
 
     def load_indexed_audio(self, indexed_audio_file_abs_path):
@@ -723,7 +723,7 @@ class SimpleAudioIndexer(object):
         ----------
         indexed_audio_file_abs_path : str
         """
-        with open(indexed_audio_file_abs_path, "rb") as f:
+        with open(indexed_audio_file_abs_path, "r") as f:
             self.__timestamps = literal_eval(f.read())
 
     def _is_anagram_of(self, candidate, target):
