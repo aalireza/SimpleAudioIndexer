@@ -221,7 +221,7 @@ class SimpleAudioIndexer(object):
             if self.verbose:
                 print("{}'s size exceeds API limit ({}). Splitting...".format(
                     name, self.api_limit_bytes))
-            self.__split_audio_by_size(
+            self._split_audio_by_size(
                 "{}/filtered/{}.wav".format(self.src_dir, name),
                 "{}/staged/{}*.wav".format(self.src_dir, name),
                 self.api_limit_bytes * 95 / 100)
