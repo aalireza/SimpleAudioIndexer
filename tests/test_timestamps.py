@@ -61,10 +61,10 @@ def indexer(monkeypatch, request):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
     if request.param == "ibm":
-        indexer = sai(mode="ibm", username_ibm="username",
-                      password_ibm="password", src_dir="src_dir")
+        indexer = sai(src_dir="src_dir", mode="ibm", username_ibm="username",
+                      password_ibm="password")
     elif request.param == "cmu":
-        indexer = sai(mode="cmu", src_dir="src_dir")
+        indexer = sai(src_dir="src_dir", mode="cmu")
     staging_list = ["test000", "test001", "other000", "other001",
                     "another000", "another001"]
     monkeypatch.setitem(indexer.__dict__,
