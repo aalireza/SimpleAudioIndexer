@@ -8,12 +8,14 @@ def argument_handler():
     parser = argparse.ArgumentParser()
     loadsave = parser.add_mutually_exclusive_group()
     search = parser.add_mutually_exclusive_group(required=True)
-    parser.add_argument("-u", "--username", help="IBM Watson API Username",
-                        type=str)
-    parser.add_argument("-p", "--password", help="IBM Watson API Password",
-                        type=str)
     parser.add_argument("-d", "--src_dir", type=str,
                         help="Absolute path to location of audio files")
+    parser.add_argument("-m", "--mode", help="The speech to text engine",
+                        type=str, choices=["ibm", "cmu"])
+    parser.add_argument("-u", "--username_ibm",
+                        help="IBM Watson API Username", type=str)
+    parser.add_argument("-p", "--password_ibm",
+                        help="IBM Watson API Password", type=str)
     search.add_argument("-s", "--search", type=str,
                         help="Search for a word within the audios of src_dir")
     search.add_argument("-r", "--regexp", type=str,
@@ -23,7 +25,7 @@ def argument_handler():
     parser.add_argument("-n", "--audio_name", type=str,
                         help=("Only index the given audio file (e.g. example" +
                               " in example.wav) that's in src_dir"))
-    parser.add_argument("-m", "--model", type=str,
+    parser.add_argument("-l", "--language", type=str,
                         help=("Model that'd be used for Watson, default is" +
                               " en-US_BroadbandModel"),
                         default="en-US_BroadbandModel")
@@ -34,25 +36,33 @@ def argument_handler():
     loadsave.add_argument("-l", "--load_data", type=str, help=(
         "abs path to the file which contains the indexed data"))
     args = parser.parse_args()
-    assert (args.username and args.password and args.src_dir) or (
+
+    assert (args.username_ibm and args.password_ibm and args.src_dir) or (
         args.load_data), (
         "Either enter your IBM credentials, or load indexed data"
     )
-    if args.load_data:
-        args.username = None
-        args.password = None
-        args.src_dir = None
+    if args.load_data or args.mode == "cmu":
+        args.username_ibm = None
+        args.password_ibm = None
+        if args.mode != "cmu":
+            args.src_dir = None
 
-    return (args.username, args.password, args.src_dir, args.search,
-            args.regexp, args.show_timestamps, args.audio_name, args.model,
-            args.verbose, args.save_data, args.load_data)
+    assert ((args.model == "cmu") and
+            (args.language == "en-US-BroadbandModel")), (
+                "You cannot choose an IBM language model if the chosen mode "
+                "is `cmu`"
+            )
+
+    return (args.src_dir, args.mode, args.username_ibm, args.password_ibm,
+            args.search, args.regexp, args.show_timestamps, args.audio_name,
+            args.language, args.verbose, args.save_data, args.load_data)
 
 
 def Main():
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from SimpleAudioIndexer import SimpleAudioIndexer
 
-    (username, password, src_dir, word, pattern, show_timestamps,
+    (src_dir, mode, username_ibm, password_ibm, word, pattern, show_timestamps,
      audio_name, model, verbose, save_data, load_data) = argument_handler()
 
     def cli_script_wrapped(indexer):
@@ -79,13 +89,17 @@ def Main():
                 pprint(indexer.search_regexp(pattern))
 
     if load_data is not None:
-        indexer = SimpleAudioIndexer(username, password, src_dir,
+        indexer = SimpleAudioIndexer(src_dir=src_dir, mode=mode,
+                                     username_ibm=username_ibm,
+                                     password_ibm=password_ibm,
                                      verbose=verbose)
         indexer.load_indexed_audio(load_data)
         cli_script_wrapped(indexer)
     else:
-        with SimpleAudioIndexer(username, password,
-                                src_dir, verbose=verbose) as indexer:
+        with SimpleAudioIndexer(src_dir=src_dir, mode=mode,
+                                username_ibm=username_ibm,
+                                password_ibm=password_ibm,
+                                verbose=verbose) as indexer:
             cli_script_wrapped(indexer)
 
 
