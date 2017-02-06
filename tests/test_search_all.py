@@ -27,7 +27,7 @@ def indexer(monkeypatch, request):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
     if request.param == "ibm":
-        indexer = sai(src_dir="", mode="ibm", username_ibm="username",
+        indexer = sai(src_dir="src_dir", mode="ibm", username_ibm="username",
                       password_ibm="password")
     elif request.param == "cmu":
         indexer = sai(src_dir="src_dir", mode="cmu")
