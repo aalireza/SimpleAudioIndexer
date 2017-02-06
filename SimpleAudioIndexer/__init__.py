@@ -20,6 +20,7 @@
 from __future__ import absolute_import, division, print_function
 from ast import literal_eval
 from collections import defaultdict, Counter
+from distutils.spawn import find_executable
 from functools import reduce
 from math import floor
 from shutil import rmtree
@@ -45,9 +46,11 @@ class SimpleAudioIndexer(object):
     in a same directory and the absolute path to that directory should be
     passed as `src_dir` upon initialization.
 
-    Call the method `index_audio` prior to searching or accessing timestamps,
-    unless you have saved the data for your previously indexed audio (in that
-    case, `load_indexed_audio` method must be used)
+    Call the method `index_audio` (which results in calling `index_audio_ibm`
+    or `index_audio_cmu` based on the given mode) prior to searching
+    or accessing timestamps, unless you have saved the data for your
+    previously indexed audio (in that case, `load_indexed_audio` method must
+    be used)
 
     You may see timestamps of the words that have been indexed so far sorted
     by audio files and the time of their occurance, by calling the method
@@ -65,31 +68,34 @@ class SimpleAudioIndexer(object):
 
     Attributes
     ----------
-    username :  str
-        IBM Watson API username
-    password :  str
-        IBM Watson API password
+    mode : {"ibm", "cmu"}
+        specifying whether speech to text engine is IBM's Watson or
+        Pocketsphinx. 
     src_dir :  str
         Absolute path to the source directory of audio files such that the
         absolute path of the audio that'll be indexed would be
         `src_dir/audio_file.wav`
     verbose :  bool, optional
         `True` if progress needs to be printed. Default is `False`.
-    api_limit_bytes :  int, optional
+    ibm_api_limit_bytes :  int, optional
         It holds the API limitation of Watson speech api http sessionless
         which is 100Mbs. Default is 100000000.
 
     Methods
     -------
-    get_username()
-    set_username()
-    get_password()
-    set_password()
-    index_audio(name=None, continuous=True, model="en-US_BroadbandModel",
-                word_confidence=True, word_alternatives_threshold=0.9,
-                keywords=None, keywords_threshold=None,
-                profanity_filter_for_US_results=False)
+    get_mode()
+    get_username_ibm()
+    set_username_ibm()
+    get_password_ibm()
+    set_password_ibm()
+    _index_audio_ibm(name=None, continuous=True, model="en-US_BroadbandModel",
+                     word_confidence=True, word_alternatives_threshold=0.9,
+                     keywords=None, keywords_threshold=None,
+                     profanity_filter_for_US_results=False)
         Implements a searching-suitable interface for the Watson API
+    _index_audio_cmu(name=None)
+        Implements an experimental interface for the CMu Pocketsphinx
+    index_audio(*args, **kwargs)
     get_timestamped_audio()
         Returns a corrected dictionary whose key is the original file name and
         whose value is a list of words and their beginning and ending time. It
@@ -111,27 +117,50 @@ class SimpleAudioIndexer(object):
         all of the audio files or the `auio_basename`
     """
 
-    def __init__(self, username, password, src_dir, api_limit_bytes=100000000,
-                 verbose=False, needed_directories={"filtered", "staging"}):
+    def __init__(self, mode="ibm", username_ibm=None, password_ibm=None,
+                 src_dir="SRC_DIR_PATH_NOT_ENTERED",
+                 ibm_api_limit_bytes=100000000, verbose=False,
+                 needed_directories={"filtered", "staging"}):
         """
         Parameters
         ----------
-        username : str
-        password : str
+        mode : {"ibm", "cmu"}
+            specifying whether speech to text engine is IBM's Watson or
+            Pocketsphinx. Pros for IBM is its accuracy, Cons is that it's not
+            free and you have to upload your audio files.
+            Pros for Pocketsphinx is that it's opensource and free, Cons is
+            that its accuracy is pre-alpha (currently it's Febuary 2017). 
+        username_ibm : str, None
+            Default is `None`, since if mode is "cmu", no username is needed.
+        password_ibm : str
+            Default is `None`, since if mode is "cmu", no password is needed.
         src_dir : str
             Absolute path to the source directory of audio files such that the
             absolute path of the audio that'll be indexed would be
             `src_dir/audio_file.wav`
-        api_limit_bytes : int, optional
+        ibm_api_limit_bytes : int, optional
             default is 100000000
         verbose : bool, optional
             default is False
         """
-        self.username = username
-        self.password = password
+        assert mode.lower() in {"ibm", "cmu"}, (
+            "Mode has to be either `cmu` or `ibm`"
+        )
+        self.__mode = mode.lower()
+        if self.__mode == "cmu":
+            assert (username_ibm == password_ibm == None), (
+                "Mode is `cmu`, IBM credentials should not be given"
+            )
+        elif self.__mode == "ibm":
+            assert ((username_ibm is not None) and
+                    (password_ibm is not None)), (
+                "Mode is `ibm`, IBM credentials must be provided"
+            )
+        self.__username_ibm = username_ibm
+        self.__password_ibm = password_ibm
         self.verbose = verbose
         self.src_dir = src_dir
-        self.api_limit_bytes = api_limit_bytes
+        self.ibm_api_limit_bytes = ibm_api_limit_bytes
         self.__timestamps = defaultdict(list)
         self._needed_directories = needed_directories
         # Because `needed_directories` are needed even if the initialization of
@@ -159,93 +188,40 @@ class SimpleAudioIndexer(object):
             for directory in self._needed_directories:
                 rmtree("{}/{}".format(self.src_dir, directory))
 
-    def get_username(self):
-        return self.username
+    def get_mode(self):
+        return self.__mode__
 
-    def set_username(self, username):
+    def get_username_ibm(self):
+        return self.__username_ibm
+
+    def set_username_ibm(self, username_ibm):
         """
         Parameters
         ----------
-        username : str
+        username_ibm : str
         """
-        self.username = username
-
-    def get_password(self):
-        return self.password
-
-    def set_password(self, password):
-        """
-        Parameters
-        ----------
-        password : str
-        """
-        self.password = password
-
-    def _filtering_step(self, basename):
-        """
-        Moves the audio file if the format is `wav` to `filtered` directory.
-        Parameters
-        ----------
-        basename : str
-            A basename of `/home/random-guy/some-audio-file.wav` is
-            `some-audio-file.wav`
-        """
-        name = ''.join(basename.split('.')[:-1])
-        # May cause problems if wav is not less than 9 channels.
-        if basename.split('.')[-1] == "wav":
-            if self.verbose:
-                print("Found wave! Copying to {}/filtered/{}".format(
-                    self.src_dir, basename))
-            subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
-                              "{}/filtered/{}.wav".format(self.src_dir, name)],
-                             universal_newlines=True).communicate()
-
-    def _staging_step(self, basename):
-        """
-        Checks the size of audio file, splits it if it's needed to manage api
-        limit and then moves to `staged` directory while appending `*` to
-        the end of the filename for self.split_audio_by_duration to replace
-        it by a number.
-
-        Parameters
-        ----------
-        basename : str
-            A basename of `/home/random-guy/some-audio-file.wav` is
-            `some-audio-file.wav`
-        """
-        name = ''.join(basename.split('.')[:-1])
-        # Checks the file size. It's better to use 95% of the allocated size
-        # per file since the upper limit is not always respected.
-        total_size = os.path.getsize("{}/filtered/{}.wav".format(
-            self.src_dir, name))
-        if total_size >= self.api_limit_bytes:
-            if self.verbose:
-                print("{}'s size exceeds API limit ({}). Splitting...".format(
-                    name, self.api_limit_bytes))
-            self._split_audio_by_size(
-                "{}/filtered/{}.wav".format(self.src_dir, name),
-                "{}/staging/{}*.wav".format(self.src_dir, name),
-                self.api_limit_bytes * 95 / 100)
+        if self.__mode == "ibm":
+            self.__username_ibm = username_ibm
         else:
-            if self.verbose:
-                print("{}'s size is fine. Moving to staging...'".format(name))
-            subprocess.Popen((
-                "mv {}/filtered/{}.wav {}/staging/{}000.wav").format(
-                                 self.src_dir, name, self.src_dir, name),
-                             shell=True, universal_newlines=True).communicate()
+            raise Exception(
+                "Mode is {}, whereas it must be `ibm`".format(self.__mode)
+            )
 
-    def _prepare_audio(self, basename):
+    def get_password_ibm(self):
+        return self.__password_ibm
+
+    def set_password_ibm(self, password_ibm):
         """
-        Prepares and stages the audio file to be indexed.
-
         Parameters
         ----------
-        basename : str
-            A basename of `/home/random-guy/some-audio-file.wav` is
-            `some-audio-file.wav`
+        password_ibm : str
         """
-        self._filtering_step(basename)
-        self._staging_step(basename)
+        if self.__mode == "ibm":
+            self.__password_ibm = password_ibm
+        else:
+            raise Exception(
+                "Mode is {}, whereas it must be `ibm`".format(self.__mode)
+            )
 
     def _list_audio_files(self, sub_dir=""):
         """
@@ -316,7 +292,7 @@ class SimpleAudioIndexer(object):
         """
         sample_bit = int(
            subprocess.check_output(
-               ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """ 
+               ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """
                 """grep -oh "^[^-]*" """).format(audio_abs_path, "Precision"),
                shell=True, universal_newlines=True).rstrip()
         )
@@ -455,12 +431,193 @@ class SimpleAudioIndexer(object):
                                             channel_num])
         self._split_audio_by_duration(audio_abs_path, results_abs_path,
                                       duration)
+    def _filtering_step(self, basename):
+        """
+        Moves the audio file if the format is `wav` to `filtered` directory.
 
-    def index_audio(self, name=None, continuous=True,
-                    model="en-US_BroadbandModel", word_confidence=True,
-                    word_alternatives_threshold=0.9, keywords=None,
-                    keywords_threshold=None,
-                    profanity_filter_for_US_results=False):
+        Parameters
+        ----------
+        basename : str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
+        """
+        name = ''.join(basename.split('.')[:-1])
+        # May cause problems if wav is not less than 9 channels.
+        if basename.split('.')[-1] == "wav":
+            if self.verbose:
+                print("Found wave! Copying to {}/filtered/{}".format(
+                    self.src_dir, basename))
+            subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
+                              "{}/filtered/{}.wav".format(self.src_dir, name)],
+                             universal_newlines=True).communicate()
+
+    def _staging_step(self, basename):
+        """
+        Checks the size of audio file, splits it if it's needed to manage api
+        limit and then moves to `staged` directory while appending `*` to
+        the end of the filename for self.split_audio_by_duration to replace
+        it by a number.
+
+        Parameters
+        ----------
+        basename : str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
+        """
+        name = ''.join(basename.split('.')[:-1])
+
+        if self.__mode == "ibm":
+            # Checks the file size. It's better to use 95% of the allocated
+            # size per file since the upper limit is not always respected.
+            total_size = os.path.getsize("{}/filtered/{}.wav".format(
+                self.src_dir, name))
+            if total_size >= self.ibm_api_limit_bytes:
+                if self.verbose:
+                    print(("{}'s size over API limit ({}). Splitting").format(
+                        name, self.ibm_api_limit_bytes))
+                self._split_audio_by_size(
+                    "{}/filtered/{}.wav".format(self.src_dir, name),
+                    "{}/staging/{}*.wav".format(self.src_dir, name),
+                    self.ibm_api_limit_bytes * 95 / 100)
+            else:
+                if self.verbose:
+                    print("{}'s size is fine. Moving to staging dir'".format(
+                        name))
+                subprocess.Popen((
+                    "mv {}/filtered/{}.wav {}/staging/{}000.wav").format(
+                                    self.src_dir, name, self.src_dir, name),
+                                 shell=True,
+                                 universal_newlines=True).communicate()
+
+        elif self.__mode == "cmu":
+            if self.verbose:
+                print("Converting {} to a readable wavv".format(basename))
+            ffmpeg = os.path.basename(find_executable("ffmpeg") or
+                                      find_executable("avconv"))
+            if ffmpeg is None:
+                raise Exception(("Either ffmpeg or avconv is needed. "
+                                 "Neither is installed or accessible"))
+            try:
+                call_return = subprocess.check_call([
+                    str(ffmpeg), "-i", "-y", "{}/filtered/{}.wav".format(
+                        self.src_dir, str(name)), "-acodec", "pcm_s16le",
+                    "-ac", "1", "-ar", "16000", "{}/staging/{}000.wav".format(
+                        self.src_dir, name)], universal_newlines=True)
+            except subprocess.CalledProcessError as e:
+                print(e)
+            if call_return == 0:
+                if self.verbose:
+                    print(("{}/filtered/{} was converted to "
+                           "{}/staging/{}000.wav Now removing the copy of "
+                           "{} in filtered sub directory").format(
+                               self.src_dir, basename,
+                               self.src_dir, name, basename))
+                subprocess.Popen([
+                    "rm", "{}/filtered/{}".format(self.src_dir, basename)],
+                                 universal_newlines=True).communicate()
+
+    def _prepare_audio(self, basename):
+        """
+        Prepares and stages the audio file to be indexed.
+
+        Parameters
+        ----------
+        basename : str
+            A basename of `/home/random-guy/some-audio-file.wav` is
+            `some-audio-file.wav`
+        """
+        self._filtering_step_ibm(basename)
+        self._staging_step_ibm(basename)
+
+    def _index_audio_cmu(self, name=None):
+        """
+        Indexes audio with pocketsphinx. Beware that the output would not be
+        sufficiently accurate. Use this only if you don't want to upload your
+        files to IBM.
+
+        Parameters
+        -----------
+        name : str, optional
+            A specific filename to be indexed and is placed in src_dir
+            The name of `audio.wav` would be `audio`.
+
+            If `None` is selected, all the valid audio files would be indexed.
+            Default is `None`.
+
+        Raises
+        ------
+        OSError
+            If the output of pocketsphinx command results in an error.
+        """
+        for audio_basename in self._list_audio_files():
+            audio_name = ''.join(audio_basename.split('.')[:-1])
+            if name is not None and audio_name != name:
+                continue
+            self._prepare_audio(basename=audio_basename)
+            if name is not None and audio_name == name:
+                break
+
+        for staging_audio_name in self._list_audio_files(sub_dir="staging"):
+            original_audio_name = ''.join(
+                staging_audio_name.split('.')[:-1]
+            )[:-3]
+            if name is not None and original_audio_name != name:
+                continue
+
+            pocketsphinx_command = ''.join([
+                "pocketsphinx_continuous", "-infile",
+                str("{}/staging/{}.wav".format(self.src_dir, name)),
+                "-time", "yes", "-logfn", "/dev/null"])
+
+            try:
+                output = subprocess.check_output([
+                    "pocketsphinx_continuous", "-infile",
+                    str("{}/staging/{}.wav".format(self.src_dir, name)),
+                    "-time", "yes", "-logfn", "/dev/null"
+                ], universal_newlines=True).split('\n')
+                str_timestamps_with_sil_conf = list(filter(
+                    lambda x: x != [''],
+                    map(lambda x: x.split(" "), output[1:])
+                ))
+                self.__timestamps = self._timestamp_extractor_cmu(
+                    str_timestamps_with_sil_conf)
+            except OSError as e:
+                print(e, "The command was: {}".format(pocketsphinx_command))
+
+            if name is not None and original_audio_name == name:
+                break
+
+    def _timestamp_extractor_cmu(self, str_timestamps_with_sil_conf):
+        """
+        Parameters
+        ----------
+        str_timestamps_with_sil_conf : [[str, str, str, str]]
+            Of the form [[word, starting_sec, ending_sec, confidence]]
+
+        Returns
+        -------
+        timestamps : [[str, float, float]]
+        """
+        str_timestamps_with_conf = list(filter(
+            lambda timestamp_with_sil_conf: (all(
+                [(word_letter not in {"<", ">", "/"})
+                 for word_letter in list(timestamp_with_sil_conf[0])]
+            ), str_timestamps_with_sil_conf)))
+        str_timestamps = list(map(
+            lambda str_timestamp_with_conf: [
+                re.findall("^[^\(]+", str_timestamp_with_conf[0]),
+                str_timestamp_with_conf[1], str_timestamp_with_conf[2]
+            ], str_timestamps_with_conf))
+        timestamps = str_timestamps[0].extend([
+            round(float(str_time), 2) for str_time in str_timestamps[1:]
+        ])
+        return timestamps
+
+    def _index_audio_ibm(self, name=None, continuous=True,
+                        model="en-US_BroadbandModel", word_confidence=True,
+                        word_alternatives_threshold=0.9, keywords=None,
+                        keywords_threshold=None,
+                        profanity_filter_for_US_results=False):
         """
         Implements a search-suitable interface for Watson speech API.
 
@@ -564,7 +721,7 @@ class SimpleAudioIndexer(object):
             audio_name = ''.join(audio_basename.split('.')[:-1])
             if name is not None and audio_name != name:
                 continue
-            self._prepare_audio(audio_basename)
+            self._prepare_audio(basename=audio_basename)
             if name is not None and audio_name == name:
                 break
         for staging_audio_name in self._list_audio_files(sub_dir="staging"):
@@ -581,19 +738,19 @@ class SimpleAudioIndexer(object):
                 response = requests.post(
                     url=("https://stream.watsonplatform.net/"
                          "speech-to-text/api/v1/recognize"),
-                    auth=(self.get_username(), self.get_password()),
+                    auth=(self.get_username_ibm(), self.get_password_ibm()),
                     headers={'content-type': 'audio/wav'},
                     data=f.read(),
                     params=params)
                 if self.verbose:
                     print("Indexing {}...".format(staging_audio_name))
                 self.__timestamps[original_audio_name + ".wav"].append(
-                    self._timestamp_extractor(json.loads(response.text))
+                    self._timestamp_extractor_ibm(json.loads(response.text))
                 )
                 if name is not None and original_audio_name == name:
                     break
 
-    def _timestamp_extractor(self, audio_json):
+    def _timestamp_extractor_ibm(self, audio_json):
         """
         Parameters
         ----------
@@ -621,6 +778,20 @@ class SimpleAudioIndexer(object):
         except KeyError:
             print(audio_json)
             print("The resulting request from Watson was unintelligible.")
+
+    def index_audio(self, *args, **kwargs):
+        """
+        Calls the correct indexer function based on the mode.
+
+        See Also
+        --------
+        SimpleAudioIndexer.SimpleAudioIndexer._index_audio_ibm
+        SimpleAudioIndexer.SimpleAudioIndexer._index_audio_cmu
+        """
+        if self.__mode == "ibm":
+            self._index_audio_ibm(*args, **kwargs)
+        elif self.__mode == "cmu":
+            self._index_audio_cmu(*args, **kwargs)
 
     def _word_block_validator(self, possibly_word_block):
         """
@@ -674,7 +845,6 @@ class SimpleAudioIndexer(object):
             # and/or have been loaded (which necessarily makes them time
             # regulated)
             return self.__timestamps
-
         staged_files = self._list_audio_files(sub_dir="staging")
         unified_timestamps = dict()
         for timestamp_basename in self.__timestamps:
