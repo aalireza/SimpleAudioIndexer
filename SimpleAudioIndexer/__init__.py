@@ -70,7 +70,7 @@ class SimpleAudioIndexer(object):
     ----------
     mode : {"ibm", "cmu"}
         specifying whether speech to text engine is IBM's Watson or
-        Pocketsphinx. 
+        Pocketsphinx.
     src_dir :  str
         Absolute path to the source directory of audio files such that the
         absolute path of the audio that'll be indexed would be
@@ -117,27 +117,26 @@ class SimpleAudioIndexer(object):
         all of the audio files or the `auio_basename`
     """
 
-    def __init__(self, mode="ibm", username_ibm=None, password_ibm=None,
-                 src_dir="SRC_DIR_PATH_NOT_ENTERED",
+    def __init__(self, src_dir, mode, username_ibm=None, password_ibm=None,
                  ibm_api_limit_bytes=100000000, verbose=False,
                  needed_directories={"filtered", "staging"}):
         """
         Parameters
         ----------
+        src_dir : str
+            Absolute path to the source directory of audio files such that the
+            absolute path of the audio that'll be indexed would be
+            `src_dir/audio_file.wav`
         mode : {"ibm", "cmu"}
             specifying whether speech to text engine is IBM's Watson or
             Pocketsphinx. Pros for IBM is its accuracy, Cons is that it's not
             free and you have to upload your audio files.
             Pros for Pocketsphinx is that it's opensource and free, Cons is
-            that its accuracy is pre-alpha (currently it's Febuary 2017). 
+            that its accuracy is pre-alpha (currently it's Febuary 2017).
         username_ibm : str, None
             Default is `None`, since if mode is "cmu", no username is needed.
         password_ibm : str
             Default is `None`, since if mode is "cmu", no password is needed.
-        src_dir : str
-            Absolute path to the source directory of audio files such that the
-            absolute path of the audio that'll be indexed would be
-            `src_dir/audio_file.wav`
         ibm_api_limit_bytes : int, optional
             default is 100000000
         verbose : bool, optional
@@ -148,7 +147,7 @@ class SimpleAudioIndexer(object):
         )
         self.__mode = mode.lower()
         if self.__mode == "cmu":
-            assert (username_ibm == password_ibm == None), (
+            assert (all([x is None for x in {username_ibm, password_ibm}])), (
                 "Mode is `cmu`, IBM credentials should not be given"
             )
         elif self.__mode == "ibm":
@@ -156,10 +155,10 @@ class SimpleAudioIndexer(object):
                     (password_ibm is not None)), (
                 "Mode is `ibm`, IBM credentials must be provided"
             )
+        self.src_dir = src_dir
         self.__username_ibm = username_ibm
         self.__password_ibm = password_ibm
         self.verbose = verbose
-        self.src_dir = src_dir
         self.ibm_api_limit_bytes = ibm_api_limit_bytes
         self.__timestamps = defaultdict(list)
         self._needed_directories = needed_directories
@@ -431,6 +430,7 @@ class SimpleAudioIndexer(object):
                                             channel_num])
         self._split_audio_by_duration(audio_abs_path, results_abs_path,
                                       duration)
+
     def _filtering_step(self, basename):
         """
         Moves the audio file if the format is `wav` to `filtered` directory.
@@ -614,10 +614,10 @@ class SimpleAudioIndexer(object):
         return timestamps
 
     def _index_audio_ibm(self, name=None, continuous=True,
-                        model="en-US_BroadbandModel", word_confidence=True,
-                        word_alternatives_threshold=0.9, keywords=None,
-                        keywords_threshold=None,
-                        profanity_filter_for_US_results=False):
+                         model="en-US_BroadbandModel", word_confidence=True,
+                         word_alternatives_threshold=0.9, keywords=None,
+                         keywords_threshold=None,
+                         profanity_filter_for_US_results=False):
         """
         Implements a search-suitable interface for Watson speech API.
 
