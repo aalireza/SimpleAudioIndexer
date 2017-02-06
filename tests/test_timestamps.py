@@ -56,22 +56,24 @@ expected_result = {
 }
 
 
-@pytest.fixture(autouse=True)
-def indexer(monkeypatch):
+@pytest.fixture(params=["ibm", "cmu"])
+def indexer(monkeypatch, request):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
-    indexer_obj = sai("username", "password", "src_dir")
-    monkeypatch.setitem(indexer_obj.__dict__,
+    if request.param == "ibm":
+        indexer = sai(mode="ibm", username_ibm="username",
+                      password_ibm="password", src_dir="src_dir")
+    elif request.param == "cmu":
+        indexer = sai(mode="cmu", src_dir="src_dir")
+    staging_list = ["test000", "test001", "other000", "other001",
+                    "another000", "another001"]
+    monkeypatch.setitem(indexer.__dict__,
                         "_SimpleAudioIndexer__timestamps", timestamp)
-    monkeypatch.setattr(indexer_obj, '_list_audio_files',
-                        lambda sub_dir: (
-                            ["test000", "test001",
-                             "other000", "other001",
-                             "another000", "another001"]
-                            if sub_dir == "staging" else None))
-    monkeypatch.setattr(indexer_obj, '_get_audio_duration_seconds',
+    monkeypatch.setattr(indexer, '_list_audio_files', lambda sub_dir: (
+        staging_list if sub_dir == "staging" else None))
+    monkeypatch.setattr(indexer, '_get_audio_duration_seconds',
                         lambda staged_audio: audio_len[staged_audio])
-    return indexer_obj
+    return indexer
 
 
 def test_get_timestamped_audio(indexer):

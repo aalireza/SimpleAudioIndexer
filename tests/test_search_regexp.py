@@ -22,15 +22,19 @@ timestamp = {
 }
 
 
-@pytest.fixture(autouse=True)
-def indexer(monkeypatch):
+@pytest.fixture(params=["ibm", "cmu"])
+def indexer(monkeypatch, request):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
-    indexer_obj = sai("username", "password", "src_dir")
-    monkeypatch.setattr(indexer_obj, 'get_timestamped_audio',
+    if request.param == "ibm":
+        indexer = sai(mode="ibm", username_ibm="username",
+                      password_ibm="password", src_dir="src_dir")
+    elif request.param == "cmu":
+        indexer = sai(mode="cmu", src_dir="src_dir")
+    monkeypatch.setattr(indexer, 'get_timestamped_audio',
                         lambda: timestamp)
-    indexer_obj.__timestamps = timestamp
-    return indexer_obj
+    indexer.__timestamps = timestamp
+    return indexer
 
 
 @pytest.mark.parametrize(("pattern"), [r'in', r'in ', r' in ', r' in'])
