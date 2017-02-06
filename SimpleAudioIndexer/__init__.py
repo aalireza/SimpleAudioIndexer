@@ -155,6 +155,11 @@ class SimpleAudioIndexer(object):
                     (password_ibm is not None)), (
                 "Mode is `ibm`, IBM credentials must be provided"
             )
+        assert os.path.exists(src_dir), ("Provided path doesn't exist")
+
+        if src_dir[-1] == "/":
+            src_dir = src_dir[:-1]
+
         self.src_dir = src_dir
         self.__username_ibm = username_ibm
         self.__password_ibm = password_ibm
@@ -491,30 +496,33 @@ class SimpleAudioIndexer(object):
 
         elif self.__mode == "cmu":
             if self.verbose:
-                print("Converting {} to a readable wavv".format(basename))
+                print("Converting {} to a readable wav".format(basename))
             ffmpeg = os.path.basename(find_executable("ffmpeg") or
                                       find_executable("avconv"))
             if ffmpeg is None:
                 raise Exception(("Either ffmpeg or avconv is needed. "
                                  "Neither is installed or accessible"))
             try:
-                call_return = subprocess.check_call([
-                    str(ffmpeg), "-i", "-y", "{}/filtered/{}.wav".format(
+                subprocess.check_call([
+                    str(ffmpeg), "-y", "-i", "{}/filtered/{}.wav".format(
                         self.src_dir, str(name)), "-acodec", "pcm_s16le",
                     "-ac", "1", "-ar", "16000", "{}/staging/{}000.wav".format(
                         self.src_dir, name)], universal_newlines=True)
             except subprocess.CalledProcessError as e:
                 print(e)
-            if call_return == 0:
+            if os.path.exists("{}/staging/{}000.wav".format(
+                    self.src_dir, name)):
                 if self.verbose:
                     print(("{}/filtered/{} was converted to "
                            "{}/staging/{}000.wav Now removing the copy of "
                            "{} in filtered sub directory").format(
-                               self.src_dir, basename,
-                               self.src_dir, name, basename))
+                                self.src_dir, basename,
+                                self.src_dir, name, basename))
                 subprocess.Popen([
                     "rm", "{}/filtered/{}".format(self.src_dir, basename)],
-                                 universal_newlines=True).communicate()
+                                    universal_newlines=True).communicate()
+            else:
+                raise Exception("Something went wrong with ffmpeg conversion!")
 
     def _prepare_audio(self, basename):
         """
@@ -526,8 +534,8 @@ class SimpleAudioIndexer(object):
             A basename of `/home/random-guy/some-audio-file.wav` is
             `some-audio-file.wav`
         """
-        self._filtering_step_ibm(basename)
-        self._staging_step_ibm(basename)
+        self._filtering_step(basename)
+        self._staging_step(basename)
 
     def _index_audio_cmu(self, name=None):
         """
@@ -557,30 +565,32 @@ class SimpleAudioIndexer(object):
             if name is not None and audio_name == name:
                 break
 
-        for staging_audio_name in self._list_audio_files(sub_dir="staging"):
+        for staging_audio_basename in self._list_audio_files(
+                sub_dir="staging"):
             original_audio_name = ''.join(
-                staging_audio_name.split('.')[:-1]
+                staging_audio_basename.split('.')[:-1]
             )[:-3]
             if name is not None and original_audio_name != name:
                 continue
 
             pocketsphinx_command = ''.join([
                 "pocketsphinx_continuous", "-infile",
-                str("{}/staging/{}.wav".format(self.src_dir, name)),
+                str("{}/staging/{}".format(
+                    self.src_dir, staging_audio_basename)),
                 "-time", "yes", "-logfn", "/dev/null"])
 
             try:
                 output = subprocess.check_output([
                     "pocketsphinx_continuous", "-infile",
-                    str("{}/staging/{}.wav".format(self.src_dir, name)),
+                    str("{}/staging/{}".format(
+                        self.src_dir, staging_audio_basename)),
                     "-time", "yes", "-logfn", "/dev/null"
                 ], universal_newlines=True).split('\n')
-                str_timestamps_with_sil_conf = list(filter(
-                    lambda x: x != [''],
-                    map(lambda x: x.split(" "), output[1:])
-                ))
-                self.__timestamps = self._timestamp_extractor_cmu(
-                    str_timestamps_with_sil_conf)
+                str_timestamps_with_sil_conf = list(map(
+                    lambda x: x.split(" "), filter(None, output[1:])))
+                self.__timestamps[original_audio_name + ".wav"] = (
+                    self._timestamp_extractor_cmu(
+                        str_timestamps_with_sil_conf))
             except OSError as e:
                 print(e, "The command was: {}".format(pocketsphinx_command))
 
@@ -598,18 +608,16 @@ class SimpleAudioIndexer(object):
         -------
         timestamps : [[str, float, float]]
         """
-        str_timestamps_with_conf = list(filter(
-            lambda timestamp_with_sil_conf: (all(
-                [(word_letter not in {"<", ">", "/"})
-                 for word_letter in list(timestamp_with_sil_conf[0])]
-            ), str_timestamps_with_sil_conf)))
-        str_timestamps = list(map(
-            lambda str_timestamp_with_conf: [
-                re.findall("^[^\(]+", str_timestamp_with_conf[0]),
-                str_timestamp_with_conf[1], str_timestamp_with_conf[2]
-            ], str_timestamps_with_conf))
-        timestamps = str_timestamps[0].extend([
-            round(float(str_time), 2) for str_time in str_timestamps[1:]
+        str_timestamps = [
+            str_timestamp[:-1]
+            for str_timestamp in str_timestamps_with_sil_conf
+            if not any([letter in {"<", ">", "/"}
+                        for letter in ''.join(str_timestamp)])
+        ]
+        timestamps = list([
+            [re.findall("^[^\(]+", x[0])[0],
+             round(float(x[1]), 2), round(float(x[2]), 2)]
+            for x in str_timestamps
         ])
         return timestamps
 
@@ -724,17 +732,18 @@ class SimpleAudioIndexer(object):
             self._prepare_audio(basename=audio_basename)
             if name is not None and audio_name == name:
                 break
-        for staging_audio_name in self._list_audio_files(sub_dir="staging"):
+        for staging_audio_basename in self._list_audio_files(
+                sub_dir="staging"):
             original_audio_name = ''.join(
-                staging_audio_name.split('.')[:-1]
+                staging_audio_basename.split('.')[:-1]
             )[:-3]
             if name is not None and original_audio_name != name:
                 continue
             with open(
                 "{}/staging/{}".format(
-                    self.src_dir, staging_audio_name), "rb") as f:
+                    self.src_dir, staging_audio_basename), "rb") as f:
                 if self.verbose:
-                    print("Uploading {}...".format(staging_audio_name))
+                    print("Uploading {}...".format(staging_audio_basename))
                 response = requests.post(
                     url=("https://stream.watsonplatform.net/"
                          "speech-to-text/api/v1/recognize"),
@@ -743,7 +752,7 @@ class SimpleAudioIndexer(object):
                     data=f.read(),
                     params=params)
                 if self.verbose:
-                    print("Indexing {}...".format(staging_audio_name))
+                    print("Indexing {}...".format(staging_audio_basename))
                 self.__timestamps[original_audio_name + ".wav"].append(
                     self._timestamp_extractor_ibm(json.loads(response.text))
                 )
