@@ -193,7 +193,7 @@ class SimpleAudioIndexer(object):
                 rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_mode(self):
-        return self.__mode__
+        return self.__mode
 
     def get_username_ibm(self):
         return self.__username_ibm
@@ -792,10 +792,135 @@ class SimpleAudioIndexer(object):
         """
         Calls the correct indexer function based on the mode.
 
-        See Also
-        --------
-        SimpleAudioIndexer.SimpleAudioIndexer._index_audio_ibm
-        SimpleAudioIndexer.SimpleAudioIndexer._index_audio_cmu
+        If mode is `ibm`, _indexer_audio_ibm is called which is an interface
+        for Watson. Note that some of the explaination of _indexer_audio_ibm's
+        arguments is from [1]_
+        If mode is `cmu`, _indexer_audio_cmu is called which is an interface
+        for PocketSphinx Beware that the output would not be sufficiently
+        accurate. Use this only if you don't want to upload your files to IBM.
+
+        Parameters
+        ----------
+        mode : {"ibm", "cmu"}
+
+        name : str, optional
+            A specific filename to be indexed and is placed in src_dir
+            The name of `audio.wav` would be `audio`.
+
+            If `None` is selected, all the valid audio files would be indexed.
+            Default is `None`.
+
+        continuous : bool
+
+            Valid Only if mode is `ibm`
+
+            Indicates whether multiple final results that represent consecutive
+            phrases separated by long pauses are returned.
+            If true, such phrases are returned; if false (the default),
+            recognition ends after the first end-of-speech (EOS) incident is
+            detected.
+
+            Default is `True`.
+
+        model :  {
+                    'ar-AR_BroadbandModel',
+                    'en-UK_BroadbandModel'
+                    'en-UK_NarrowbandModel',
+                    'en-US_BroadbandModel', (the default)
+                    'en-US_NarrowbandModel',
+                    'es-ES_BroadbandModel',
+                    'es-ES_NarrowbandModel',
+                    'fr-FR_BroadbandModel',
+                    'ja-JP_BroadbandModel',
+                    'ja-JP_NarrowbandModel',
+                    'pt-BR_BroadbandModel',
+                    'pt-BR_NarrowbandModel',
+                    'zh-CN_BroadbandModel',
+                    'zh-CN_NarrowbandModel'
+                 }
+
+            Valid Only if mode is `ibm`
+
+            The identifier of the model to be used for the recognition
+
+            Default is 'en-US_BroadbandModel'
+
+        word_confidence : bool
+
+            Valid Only if mode is `ibm`
+
+            Indicates whether a confidence measure in the range of 0 to 1 is
+            returned for each word.
+
+            The default is True. (It's False in the original)
+
+        word_alternatives_threshold : numeric
+
+            Valid Only if mode is `ibm`
+
+            A confidence value that is the lower bound for identifying a
+            hypothesis as a possible word alternative (also known as
+            "Confusion Networks"). An alternative word is considered if its
+            confidence is greater than or equal to the threshold. Specify a
+            probability between 0 and 1 inclusive.
+
+            Default is `0.9`.
+
+        keywords : [str], optional
+
+            Valid Only if mode is `ibm`
+
+            A list of keywords to spot in the audio. Each keyword string can
+            include one or more tokens. Keywords are spotted only in the final
+            hypothesis, not in interim results.
+
+            Omit the parameter or specify `None` if you do not need to spot
+            keywords.
+
+            Default is `None`
+
+        keywords_threshold : numeric, optional
+
+            Valid Only if mode is `ibm`
+
+            A confidence value that is the lower bound for spotting a keyword.
+            A word is considered to match a keyword if its confidence is
+            greater than or equal to the threshold. Specify a probability
+            between 0 and 1 inclusive.
+
+            No keyword spotting is performed if you specify the default value
+            `None`.
+
+            If you specify a threshold, you must also specify one or more
+            keywords.
+
+        profanity_filter_for_US_results : bool
+
+            Valid Only if mode is `ibm`
+
+            Indicates whether profanity filtering is performed on the
+            transcript. If true, the service filters profanity from all output
+            except for keyword results by replacing inappropriate words with a
+            series of asterisks.
+
+            If false, the service returns results with no censoring. Applies
+            to US English transcription only.
+
+            Default is `False`.
+
+        Raises
+        ------
+        OSError
+
+            Valid only if mode is `cmu`.
+
+            If the output of pocketsphinx command results in an error.
+
+        References
+        ----------
+        .. [1] : https://ibm.com/watson/developercloud/speech-to-text/api/v1/
+
+        Else if mode is `cmu`, then _index_audio_cmu would be called:
         """
         if self.__mode == "ibm":
             self._index_audio_ibm(*args, **kwargs)
@@ -817,9 +942,9 @@ class SimpleAudioIndexer(object):
         return (
             type(possibly_word_block) is list and
             len(possibly_word_block) == 3 and
-            type(possibly_word_block[0]) in [str, unicode] and
-            type(possibly_word_block[1]) in [int, long, float] and
-            type(possibly_word_block[2]) in [int, long, float]
+            type(possibly_word_block[0]) in {str, unicode} and
+            type(possibly_word_block[1]) in {int, long, float} and
+            type(possibly_word_block[2]) in {int, long, float}
         )
 
     def get_timestamped_audio(self):
