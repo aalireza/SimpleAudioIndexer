@@ -1240,12 +1240,8 @@ class SimpleAudioIndexer(object):
             cannot be removed)
         """
         query_words = list(
-            filter(
-                lambda element: element is not None,
-                ''.join(
-                    filter(
-                        lambda char: char in (ascii_letters + " "),
-                        list(query))
+            filter(None, ''.join(
+                filter(lambda char: char in (ascii_letters + " "), list(query))
                 ).split(" ")
             )
         )
