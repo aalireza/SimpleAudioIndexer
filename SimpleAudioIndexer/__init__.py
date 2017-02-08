@@ -115,7 +115,7 @@ class SimpleAudioIndexer(object):
     _index_audio_cmu(name=None)
         Implements an experimental interface for the CMu Pocketsphinx
     index_audio(*args, **kwargs)
-    get_timestamped_audio()
+    get_timestamps()
         Returns a corrected dictionary whose key is the original file name and
         whose value is a list of words and their beginning and ending time. It
         accounts for large files and does the timing calculations to return the
@@ -189,8 +189,8 @@ class SimpleAudioIndexer(object):
 
     def __enter__(self):
         """
-        Creates the needed directories for audio processing. It'll be
-        called even if not in a context manager.
+        Creates the needed directories for audio processing. Will only be
+        called if the instance is initialized within a context manager.
         """
         if self.src_dir is not None:
             for directory in self._needed_directories:
@@ -201,8 +201,8 @@ class SimpleAudioIndexer(object):
 
     def __exit__(self, *args):
         """
-        Removes the works of __enter__. Will only be called if in a context
-        manager.
+        Removes the works of __enter__. Will only be called if the instance is
+        initialized within a context manager.
         """
         if self.src_dir is not None:
             for directory in self._needed_directories:
@@ -979,7 +979,7 @@ class SimpleAudioIndexer(object):
             type(possibly_word_block[2]) in {int, long, float}
         )
 
-    def get_timestamped_audio(self):
+    def get_timestamps(self):
         return self.__timestamps
 
     def _timestamp_regulator(self):
@@ -1058,7 +1058,7 @@ class SimpleAudioIndexer(object):
         indexed_audio_file_abs_path : str
         """
         with open(indexed_audio_file_abs_path, "w") as f:
-            f.write(str(self.get_timestamped_audio()))
+            f.write(str(self.get_timestamps()))
 
     def load_indexed_audio(self, indexed_audio_file_abs_path):
         """
@@ -1286,7 +1286,7 @@ class SimpleAudioIndexer(object):
             "the total number of words within the query minus the first and "
             "the last word."
         )
-        timestamps = self.get_timestamped_audio()
+        timestamps = self.get_timestamps()
         if not case_sensitive:
             query_words = [x.lower() for x in query_words]
             timestamps = {
@@ -1558,7 +1558,7 @@ class SimpleAudioIndexer(object):
         class PrettyDefaultDict(defaultdict):
             __repr__ = dict.__repr__
 
-        timestamps = self.get_timestamped_audio()
+        timestamps = self.get_timestamps()
         if audio_basename is not None:
             timestamps = {audio_basename: timestamps[audio_basename]}
         transcription = {
@@ -1594,8 +1594,7 @@ class _Subdirectory_Managing_Decorator(ContextDecorator):
 
         def __enter__(self):
             """
-            Creates the needed directories for audio processing. It'll be
-            called even if not in a context manager.
+            Creates the needed directories for audio processing.
             """
             if self.src_dir is not None:
                 for directory in self.needed_directories:
@@ -1606,8 +1605,7 @@ class _Subdirectory_Managing_Decorator(ContextDecorator):
 
         def __exit__(self, *args):
             """
-            Removes the works of __enter__. Will only be called if in a context
-            manager.
+            Removes the works of __enter__.
             """
             if self.src_dir is not None:
                 for directory in self.needed_directories:
