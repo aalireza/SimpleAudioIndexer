@@ -18,7 +18,6 @@
 
 
 from __future__ import absolute_import, division, print_function
-from ast import literal_eval
 from collections import defaultdict, Counter
 from distutils.spawn import find_executable
 from functools import reduce, wraps
@@ -34,9 +33,12 @@ import sys
 
 if sys.version_info >= (3, 0):
     from contextlib import ContextDecorator
+    import pickle
     unicode = str
     long = int
 else:
+    import cPickle as pickle
+
     class ContextDecorator(object):
         """A base class or mixin that enables context managers to work as
         decorators.
@@ -1057,8 +1059,8 @@ class SimpleAudioIndexer(object):
         ----------
         indexed_audio_file_abs_path : str
         """
-        with open(indexed_audio_file_abs_path, "w") as f:
-            f.write(str(self.get_timestamps()))
+        with open(indexed_audio_file_abs_path, "wb") as f:
+            pickle.dump(self.get_timestamps(), f, pickle.HIGHEST_PROTOCOL)
 
     def load_indexed_audio(self, indexed_audio_file_abs_path):
         """
@@ -1066,8 +1068,8 @@ class SimpleAudioIndexer(object):
         ----------
         indexed_audio_file_abs_path : str
         """
-        with open(indexed_audio_file_abs_path, "r") as f:
-            self.__timestamps = literal_eval(f.read())
+        with open(indexed_audio_file_abs_path, "rb") as f:
+            self.__timestamps = pickle.load(f)
 
     def _is_anagram_of(self, candidate, target):
         """
