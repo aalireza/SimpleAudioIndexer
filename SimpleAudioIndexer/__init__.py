@@ -33,8 +33,11 @@ import subprocess
 import sys
 
 if sys.version_info >= (3, 0):
+    from contextlib import ContextDecorator
     unicode = str
     long = int
+else:
+    from contextlib2 import ContextDecorator
 
 
 class SimpleAudioIndexer(object):
@@ -167,19 +170,16 @@ class SimpleAudioIndexer(object):
         self.ibm_api_limit_bytes = ibm_api_limit_bytes
         self.__timestamps = defaultdict(list)
         self._needed_directories = needed_directories
-        # Because `needed_directories` are needed even if the initialization of
-        # the object is not in a context manager for it to be created
-        # automatically.
-        self.__enter__()
 
     def __enter__(self):
         """
-        Creates the needed directories for audio processing. It'll be called
-        even if not in a context manager.
+        Creates the needed directories for audio processing. It'll be
+        called even if not in a context manager.
         """
         if self.src_dir is not None:
             for directory in self._needed_directories:
-                if not os.path.exists("{}/{}".format(self.src_dir, directory)):
+                if not os.path.exists("{}/{}".format(
+                        self.src_dir, directory)):
                     os.mkdir("{}/{}".format(self.src_dir, directory))
         return self
 
@@ -193,9 +193,20 @@ class SimpleAudioIndexer(object):
                 rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_mode(self):
+        """
+        Returns
+        -------
+        str
+        """
         return self.__mode
 
     def get_username_ibm(self):
+        """
+        Returns
+        -------
+        str, None
+            Returns `str` if mode is `ibm`, else `None`
+        """
         return self.__username_ibm
 
     def set_username_ibm(self, username_ibm):
@@ -203,15 +214,26 @@ class SimpleAudioIndexer(object):
         Parameters
         ----------
         username_ibm : str
+
+        Raises
+        ------
+        Exception
+            If mode is not `ibm`
         """
-        if self.__mode == "ibm":
+        if self.get_mode() == "ibm":
             self.__username_ibm = username_ibm
         else:
             raise Exception(
-                "Mode is {}, whereas it must be `ibm`".format(self.__mode)
+                "Mode is {}, whereas it must be `ibm`".format(self.get_moder())
             )
 
     def get_password_ibm(self):
+        """
+        Returns
+        -------
+        str, None
+            Returns `str` if mode is `ibm`, else `None`
+        """
         return self.__password_ibm
 
     def set_password_ibm(self, password_ibm):
@@ -219,12 +241,17 @@ class SimpleAudioIndexer(object):
         Parameters
         ----------
         password_ibm : str
+
+        Raises
+        ------
+        Exception
+            If mode is not `ibm`
         """
-        if self.__mode == "ibm":
+        if self.get_mode() == "ibm":
             self.__password_ibm = password_ibm
         else:
             raise Exception(
-                "Mode is {}, whereas it must be `ibm`".format(self.__mode)
+                "Mode is {}, whereas it must be `ibm`".format(self.get_mode())
             )
 
     def _list_audio_files(self, sub_dir=""):
@@ -471,7 +498,7 @@ class SimpleAudioIndexer(object):
         """
         name = ''.join(basename.split('.')[:-1])
 
-        if self.__mode == "ibm":
+        if self.get_mode() == "ibm":
             # Checks the file size. It's better to use 95% of the allocated
             # size per file since the upper limit is not always respected.
             total_size = os.path.getsize("{}/filtered/{}.wav".format(
@@ -494,7 +521,7 @@ class SimpleAudioIndexer(object):
                                  shell=True,
                                  universal_newlines=True).communicate()
 
-        elif self.__mode == "cmu":
+        elif self.get_mode() == "cmu":
             if self.verbose:
                 print("Converting {} to a readable wav".format(basename))
             ffmpeg = os.path.basename(find_executable("ffmpeg") or
@@ -530,14 +557,20 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        basename : str
+        basename : str, None
             A basename of `/home/random-guy/some-audio-file.wav` is
             `some-audio-file.wav`
+            If basename is `None`, it'll prepare all the audio files.
         """
-        self._filtering_step(basename)
-        self._staging_step(basename)
+        if basename is not None:
+            self._filtering_step(basename)
+            self._staging_step(basename)
+        else:
+            for audio_basename in self._list_audio_files():
+                self._filtering_step(audio_basename)
+                self._staging_step(audio_basename)
 
-    def _index_audio_cmu(self, name=None):
+    def _index_audio_cmu(self, basename=None):
         """
         Indexes audio with pocketsphinx. Beware that the output would not be
         sufficiently accurate. Use this only if you don't want to upload your
@@ -545,9 +578,9 @@ class SimpleAudioIndexer(object):
 
         Parameters
         -----------
-        name : str, optional
-            A specific filename to be indexed and is placed in src_dir
-            The name of `audio.wav` would be `audio`.
+        basename : str, optional
+            A specific basename to be indexed and is placed in src_dir
+            E.g. `audio.wav`.
 
             If `None` is selected, all the valid audio files would be indexed.
             Default is `None`.
@@ -557,28 +590,18 @@ class SimpleAudioIndexer(object):
         OSError
             If the output of pocketsphinx command results in an error.
         """
-        for audio_basename in self._list_audio_files():
-            audio_name = ''.join(audio_basename.split('.')[:-1])
-            if name is not None and audio_name != name:
-                continue
-            self._prepare_audio(basename=audio_basename)
-            if name is not None and audio_name == name:
-                break
+        self._prepare_audio(basename=basename)
 
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
             original_audio_name = ''.join(
                 staging_audio_basename.split('.')[:-1]
             )[:-3]
-            if name is not None and original_audio_name != name:
-                continue
-
             pocketsphinx_command = ''.join([
                 "pocketsphinx_continuous", "-infile",
                 str("{}/staging/{}".format(
                     self.src_dir, staging_audio_basename)),
                 "-time", "yes", "-logfn", "/dev/null"])
-
             try:
                 output = subprocess.check_output([
                     "pocketsphinx_continuous", "-infile",
@@ -594,8 +617,7 @@ class SimpleAudioIndexer(object):
             except OSError as e:
                 print(e, "The command was: {}".format(pocketsphinx_command))
 
-            if name is not None and original_audio_name == name:
-                break
+        self.__timestamps = self._timestamp_regulator()
 
     def _timestamp_extractor_cmu(self, str_timestamps_with_sil_conf):
         """
@@ -621,7 +643,7 @@ class SimpleAudioIndexer(object):
         ])
         return timestamps
 
-    def _index_audio_ibm(self, name=None, continuous=True,
+    def _index_audio_ibm(self, basename=None, continuous=True,
                          model="en-US_BroadbandModel", word_confidence=True,
                          word_alternatives_threshold=0.9, keywords=None,
                          keywords_threshold=None,
@@ -633,9 +655,9 @@ class SimpleAudioIndexer(object):
 
         Parameters
         ----------
-        name : str, optional
-            A specific filename to be indexed and is placed in src_dir
-            The name of `audio.wav` would be `audio`.
+        basename : str, optional
+            A specific basename to be indexed and is placed in src_dir
+            e.g `audio.wav`.
 
             If `None` is selected, all the valid audio files would be indexed.
             Default is `None`.
@@ -725,22 +747,14 @@ class SimpleAudioIndexer(object):
         if keywords_threshold is not None:
             params['keywords_threshold'] = keywords_threshold
 
-        for audio_basename in self._list_audio_files():
-            audio_name = ''.join(audio_basename.split('.')[:-1])
-            if name is not None and audio_name != name:
-                continue
-            self._prepare_audio(basename=audio_basename)
-            if name is not None and audio_name == name:
-                break
+        self._prepare_audio(basename=basename)
+
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
             original_audio_name = ''.join(
                 staging_audio_basename.split('.')[:-1]
             )[:-3]
-            if name is not None and original_audio_name != name:
-                continue
-            with open(
-                "{}/staging/{}".format(
+            with open("{}/staging/{}".format(
                     self.src_dir, staging_audio_basename), "rb") as f:
                 if self.verbose:
                     print("Uploading {}...".format(staging_audio_basename))
@@ -756,8 +770,7 @@ class SimpleAudioIndexer(object):
                 self.__timestamps[original_audio_name + ".wav"].append(
                     self._timestamp_extractor_ibm(json.loads(response.text))
                 )
-                if name is not None and original_audio_name == name:
-                    break
+        self.__timestamps = self._timestamp_regulator()
 
     def _timestamp_extractor_ibm(self, audio_json):
         """
@@ -803,9 +816,9 @@ class SimpleAudioIndexer(object):
         ----------
         mode : {"ibm", "cmu"}
 
-        name : str, optional
-            A specific filename to be indexed and is placed in src_dir
-            The name of `audio.wav` would be `audio`.
+        basename : str, optional
+            A specific basename to be indexed and is placed in src_dir
+            e.g `audio.wav`.
 
             If `None` is selected, all the valid audio files would be indexed.
             Default is `None`.
@@ -922,10 +935,13 @@ class SimpleAudioIndexer(object):
 
         Else if mode is `cmu`, then _index_audio_cmu would be called:
         """
-        if self.__mode == "ibm":
-            self._index_audio_ibm(*args, **kwargs)
-        elif self.__mode == "cmu":
-            self._index_audio_cmu(*args, **kwargs)
+
+        with _Subdirectory_Managing_Decorator(
+                self.src_dir, self._needed_directories):
+            if self.get_mode() == "ibm":
+                self._index_audio_ibm(*args, **kwargs)
+            elif self.get_mode() == "cmu":
+                self._index_audio_cmu(*args, **kwargs)
 
     def _word_block_validator(self, possibly_word_block):
         """
@@ -948,6 +964,9 @@ class SimpleAudioIndexer(object):
         )
 
     def get_timestamped_audio(self):
+        return self.__timestamps
+
+    def _timestamp_regulator(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
         values are a list of word blocks (a word block is a list which has
@@ -1549,3 +1568,31 @@ class SimpleAudioIndexer(object):
                     )
                 )
         return search_results
+
+
+class _Subdirectory_Managing_Decorator(ContextDecorator):
+
+        def __init__(self, src_dir, needed_directories):
+            self.src_dir = src_dir
+            self.needed_directories = needed_directories
+
+        def __enter__(self):
+            """
+            Creates the needed directories for audio processing. It'll be
+            called even if not in a context manager.
+            """
+            if self.src_dir is not None:
+                for directory in self.needed_directories:
+                    if not os.path.exists("{}/{}".format(
+                            self.src_dir, directory)):
+                        os.mkdir("{}/{}".format(self.src_dir, directory))
+            return self
+
+        def __exit__(self, *args):
+            """
+            Removes the works of __enter__. Will only be called if in a context
+            manager.
+            """
+            if self.src_dir is not None:
+                for directory in self.needed_directories:
+                    rmtree("{}/{}".format(self.src_dir, directory))
