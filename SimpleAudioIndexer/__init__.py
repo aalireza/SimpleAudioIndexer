@@ -24,6 +24,7 @@ from functools import reduce, wraps
 from math import floor
 from shutil import rmtree
 from string import ascii_letters
+from time import time
 import json
 import os
 import re
@@ -111,7 +112,6 @@ class SimpleAudioIndexer(object):
     set_password_ibm()
     _index_audio_ibm(name=None, continuous=True, model="en-US_BroadbandModel",
                      word_confidence=True, word_alternatives_threshold=0.9,
-                     keywords=None, keywords_threshold=None,
                      profanity_filter_for_US_results=False)
         Implements a searching-suitable interface for the Watson API
     _index_audio_cmu(name=None)
@@ -187,6 +187,7 @@ class SimpleAudioIndexer(object):
         self.verbose = verbose
         self.ibm_api_limit_bytes = ibm_api_limit_bytes
         self.__timestamps = defaultdict(list)
+        self.__errors = dict()
         self._needed_directories = needed_directories
 
     def __enter__(self):
@@ -271,6 +272,12 @@ class SimpleAudioIndexer(object):
             raise Exception(
                 "Mode is {}, whereas it must be `ibm`".format(self.get_mode())
             )
+
+    def get_verbosity(self):
+        return self.verbose
+
+    def set_verbosity(self, boolean):
+        self.verbose = boolean
 
     def _list_audio_files(self, sub_dir=""):
         """
@@ -569,7 +576,7 @@ class SimpleAudioIndexer(object):
             else:
                 raise Exception("Something went wrong with ffmpeg conversion!")
 
-    def _prepare_audio(self, basename):
+    def _prepare_audio(self, basename, replace_already_indexed=False):
         """
         Prepares and stages the audio file to be indexed.
 
@@ -585,10 +592,16 @@ class SimpleAudioIndexer(object):
             self._staging_step(basename)
         else:
             for audio_basename in self._list_audio_files():
-                self._filtering_step(audio_basename)
-                self._staging_step(audio_basename)
+                if (
+                        replace_already_indexed and
+                        audio_basename in self.get_timestamps()
+                ):
+                    continue
+                else:
+                    self._filtering_step(audio_basename)
+                    self._staging_step(audio_basename)
 
-    def _index_audio_cmu(self, basename=None):
+    def _index_audio_cmu(self, basename=None, replace_already_indexed=False):
         """
         Indexes audio with pocketsphinx. Beware that the output would not be
         sufficiently accurate. Use this only if you don't want to upload your
@@ -608,7 +621,8 @@ class SimpleAudioIndexer(object):
         OSError
             If the output of pocketsphinx command results in an error.
         """
-        self._prepare_audio(basename=basename)
+        self._prepare_audio(basename=basename,
+                            replace_already_indexed=replace_already_indexed)
 
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
@@ -661,10 +675,9 @@ class SimpleAudioIndexer(object):
         ])
         return timestamps
 
-    def _index_audio_ibm(self, basename=None, continuous=True,
-                         model="en-US_BroadbandModel", word_confidence=True,
-                         word_alternatives_threshold=0.9, keywords=None,
-                         keywords_threshold=None,
+    def _index_audio_ibm(self, basename=None, replace_already_indexed=False,
+                         continuous=True, model="en-US_BroadbandModel",
+                         word_confidence=True, word_alternatives_threshold=0.9,
                          profanity_filter_for_US_results=False):
         """
         Implements a search-suitable interface for Watson speech API.
@@ -679,6 +692,13 @@ class SimpleAudioIndexer(object):
 
             If `None` is selected, all the valid audio files would be indexed.
             Default is `None`.
+
+        replace_already_indexed : bool
+            `True`, To reindex some audio file that's already in the
+             timestamps.
+
+             Default is `False`.
+
         continuous : bool
             Indicates whether multiple final results that represent consecutive
             phrases separated by long pauses are returned.
@@ -719,26 +739,6 @@ class SimpleAudioIndexer(object):
             probability between 0 and 1 inclusive.
 
             Default is `0.9`.
-        keywords : [str], optional
-            A list of keywords to spot in the audio. Each keyword string can
-            include one or more tokens. Keywords are spotted only in the final
-            hypothesis, not in interim results.
-
-            Omit the parameter or specify `None` if you do not need to spot
-            keywords.
-
-            Default is `None`
-        keywords_threshold : numeric, optional
-            A confidence value that is the lower bound for spotting a keyword.
-            A word is considered to match a keyword if its confidence is
-            greater than or equal to the threshold. Specify a probability
-            between 0 and 1 inclusive.
-
-            No keyword spotting is performed if you specify the default value
-            `None`.
-
-            If you specify a threshold, you must also specify one or more
-            keywords.
         profanity_filter_for_US_results : bool
             Indicates whether profanity filtering is performed on the
             transcript. If true, the service filters profanity from all output
@@ -760,12 +760,9 @@ class SimpleAudioIndexer(object):
                   'word_confidence': word_confidence,
                   'timestamps': True,
                   'profanity_filter': profanity_filter_for_US_results}
-        if keywords is not None:
-            params['keywords'] = keywords
-        if keywords_threshold is not None:
-            params['keywords_threshold'] = keywords_threshold
 
-        self._prepare_audio(basename=basename)
+        self._prepare_audio(basename=basename,
+                            replace_already_indexed=replace_already_indexed)
 
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
@@ -816,8 +813,11 @@ class SimpleAudioIndexer(object):
                 for word in sentence_block
             ]
         except KeyError:
-            print(audio_json)
-            print("The resulting request from Watson was unintelligible.")
+            self.__errors[time()] = audio_json
+            if self.verbose:
+                print(audio_json)
+                print("The resulting request from Watson was unintelligible.")
+            return False
 
     def index_audio(self, *args, **kwargs):
         """
@@ -835,11 +835,19 @@ class SimpleAudioIndexer(object):
         mode : {"ibm", "cmu"}
 
         basename : str, optional
+
             A specific basename to be indexed and is placed in src_dir
             e.g `audio.wav`.
 
             If `None` is selected, all the valid audio files would be indexed.
             Default is `None`.
+
+        replace_already_indexed : bool
+
+            `True`, To reindex some audio file that's already in the
+             timestamps.
+
+             Default is `False`.
 
         continuous : bool
 
@@ -896,34 +904,6 @@ class SimpleAudioIndexer(object):
             probability between 0 and 1 inclusive.
 
             Default is `0.9`.
-
-        keywords : [str], optional
-
-            Valid Only if mode is `ibm`
-
-            A list of keywords to spot in the audio. Each keyword string can
-            include one or more tokens. Keywords are spotted only in the final
-            hypothesis, not in interim results.
-
-            Omit the parameter or specify `None` if you do not need to spot
-            keywords.
-
-            Default is `None`
-
-        keywords_threshold : numeric, optional
-
-            Valid Only if mode is `ibm`
-
-            A confidence value that is the lower bound for spotting a keyword.
-            A word is considered to match a keyword if its confidence is
-            greater than or equal to the threshold. Specify a probability
-            between 0 and 1 inclusive.
-
-            No keyword spotting is performed if you specify the default value
-            `None`.
-
-            If you specify a threshold, you must also specify one or more
-            keywords.
 
         profanity_filter_for_US_results : bool
 
@@ -984,6 +964,9 @@ class SimpleAudioIndexer(object):
     def get_timestamps(self):
         return self.__timestamps
 
+    def get_errors(self):
+        return self.__errors
+
     def _timestamp_regulator(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
@@ -1022,10 +1005,9 @@ class SimpleAudioIndexer(object):
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
             if type(self.__timestamps[timestamp_basename][0][0]) is list:
                 staged_splitted_file_basenames = list(
-                    filter(
-                        lambda x: timestamp_name in x, staged_files
-                    )
-                )
+                    filter(lambda x: timestamp_name in x, staged_files))
+                if staged_splitted_file_basenames is None:
+                    continue
                 staged_splitted_file_basenames.sort()
                 unified_timestamp = list()
                 seconds_passed = 0
@@ -1034,15 +1016,15 @@ class SimpleAudioIndexer(object):
                     total_seconds = self._get_audio_duration_seconds(
                         "{}/staging/{}".format(
                             self.src_dir,
-                            staged_splitted_file_basenames[split_index]
+                            staged_splitted_file_basenames[split_index]))
+                    if splitted_file_timestamp is not False:
+                        # If no part of the big audio is left unindexed.
+                        unified_timestamp += map(
+                            lambda word: [word[0],
+                                          round(word[1] + seconds_passed, 2),
+                                          round(word[2] + seconds_passed, 2)],
+                            splitted_file_timestamp
                         )
-                    )
-                    unified_timestamp += map(
-                        lambda word: [word[0],
-                                      round(word[1] + seconds_passed, 2),
-                                      round(word[2] + seconds_passed, 2)],
-                        splitted_file_timestamp
-                    )
                     seconds_passed += total_seconds
                 unified_timestamps[str(timestamp_basename)] = unified_timestamp
             else:
