@@ -186,7 +186,7 @@ class SimpleAudioIndexer(object):
         self.__password_ibm = password_ibm
         self.verbose = verbose
         self.ibm_api_limit_bytes = ibm_api_limit_bytes
-        self.__timestamps = defaultdict(list)
+        self.__timestamps = PrettyDefaultDict(list)
         self.__errors = dict()
         self._needed_directories = needed_directories
 
@@ -276,8 +276,14 @@ class SimpleAudioIndexer(object):
     def get_verbosity(self):
         return self.verbose
 
-    def set_verbosity(self, boolean):
-        self.verbose = boolean
+    def set_verbosity(self, pred):
+        self.verbose = bool(pred)
+
+    def get_timestamps(self):
+        return self.__timestamps
+
+    def get_errors(self):
+        return self.__errors
 
     def _list_audio_files(self, sub_dir=""):
         """
@@ -588,6 +594,8 @@ class SimpleAudioIndexer(object):
             If basename is `None`, it'll prepare all the audio files.
         """
         if basename is not None:
+            if basename in self.get_timestamps():
+                del self.__timestamps[basename]
             self._filtering_step(basename)
             self._staging_step(basename)
         else:
@@ -596,10 +604,14 @@ class SimpleAudioIndexer(object):
                         replace_already_indexed and
                         audio_basename in self.get_timestamps()
                 ):
+                    del self.__timestamps[audio_basename]
+                elif (
+                        not replace_already_indexed and
+                        audio_basename in self.get_timestamps()
+                ):
                     continue
-                else:
-                    self._filtering_step(audio_basename)
-                    self._staging_step(audio_basename)
+                self._filtering_step(audio_basename)
+                self._staging_step(audio_basename)
 
     def _index_audio_cmu(self, basename=None, replace_already_indexed=False):
         """
@@ -645,13 +657,17 @@ class SimpleAudioIndexer(object):
                     lambda x: x.split(" "), filter(None, output[1:])))
                 self.__timestamps[original_audio_name + ".wav"] = (
                     self._timestamp_extractor_cmu(
-                        str_timestamps_with_sil_conf))
+                        staging_audio_basename, str_timestamps_with_sil_conf))
             except OSError as e:
-                print(e, "The command was: {}".format(pocketsphinx_command))
+                if self.verbose:
+                    print(e, "The command was: {}".format(
+                        pocketsphinx_command))
+                self.__errors[time()] = e
 
         self.__timestamps = self._timestamp_regulator()
 
-    def _timestamp_extractor_cmu(self, str_timestamps_with_sil_conf):
+    def _timestamp_extractor_cmu(self, staging_audio_basename,
+                                 str_timestamps_with_sil_conf):
         """
         Parameters
         ----------
@@ -662,9 +678,15 @@ class SimpleAudioIndexer(object):
         -------
         timestamps : [[str, float, float]]
         """
+        filter_untimed = filter(lambda x: len(x) == 4,
+                                str_timestamps_with_sil_conf)
+        if filter_untimed != str_timestamps_with_sil_conf:
+            self.__errors[
+                (time(), staging_audio_basename)
+            ] = str_timestamps_with_sil_conf
         str_timestamps = [
             str_timestamp[:-1]
-            for str_timestamp in str_timestamps_with_sil_conf
+            for str_timestamp in filter_untimed
             if not any([letter in {"<", ">", "/"}
                         for letter in ''.join(str_timestamp)])
         ]
@@ -782,12 +804,14 @@ class SimpleAudioIndexer(object):
                     params=params)
                 if self.verbose:
                     print("Indexing {}...".format(staging_audio_basename))
+                    print(self.__timestamps)
                 self.__timestamps[original_audio_name + ".wav"].append(
-                    self._timestamp_extractor_ibm(json.loads(response.text))
+                    self._timestamp_extractor_ibm(staging_audio_basename,
+                                                  json.loads(response.text))
                 )
         self.__timestamps = self._timestamp_regulator()
 
-    def _timestamp_extractor_ibm(self, audio_json):
+    def _timestamp_extractor_ibm(self, staging_audio_basename, audio_json):
         """
         Parameters
         ----------
@@ -813,7 +837,7 @@ class SimpleAudioIndexer(object):
                 for word in sentence_block
             ]
         except KeyError:
-            self.__errors[time()] = audio_json
+            self.__errors[(time(), staging_audio_basename)] = audio_json
             if self.verbose:
                 print(audio_json)
                 print("The resulting request from Watson was unintelligible.")
@@ -961,12 +985,6 @@ class SimpleAudioIndexer(object):
             type(possibly_word_block[2]) in {int, long, float}
         )
 
-    def get_timestamps(self):
-        return self.__timestamps
-
-    def get_errors(self):
-        return self.__errors
-
     def _timestamp_regulator(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
@@ -1000,7 +1018,7 @@ class SimpleAudioIndexer(object):
             # regulated)
             return self.__timestamps
         staged_files = self._list_audio_files(sub_dir="staging")
-        unified_timestamps = dict()
+        unified_timestamps = PrettyDefaultDict(list)
         for timestamp_basename in self.__timestamps:
             timestamp_name = ''.join(timestamp_basename.split('.')[0])
             if type(self.__timestamps[timestamp_basename][0][0]) is list:
@@ -1445,14 +1463,6 @@ class SimpleAudioIndexer(object):
             "missing_word_tolerance": missing_word_tolerance
         }
 
-        # When printing the output of search_results, normally the defaultdict
-        # type would be shown as well. To print the `search_results` normally,
-        # defining a PrettyDefaultDict type that is printable the same way as a
-        # dict, is easier/faster than json.load(json.dump(x)) etc. and we don't
-        # actually have to deal with encoding either.
-        class PrettyDefaultDict(defaultdict):
-            __repr__ = dict.__repr__
-
         if not isinstance(queries, (list, str)):
             raise TypeError("Invalid query type.")
         if type(queries) is not list:
@@ -1538,10 +1548,6 @@ class SimpleAudioIndexer(object):
             return (timestamps[audio_basename][block_number_start][1],
                     timestamps[audio_basename][block_number_end][-1])
 
-        # Refer to the explaination in self.search_all
-        class PrettyDefaultDict(defaultdict):
-            __repr__ = dict.__repr__
-
         timestamps = self.get_timestamps()
         if audio_basename is not None:
             timestamps = {audio_basename: timestamps[audio_basename]}
@@ -1568,6 +1574,15 @@ class SimpleAudioIndexer(object):
                     )
                 )
         return search_results
+
+
+class PrettyDefaultDict(defaultdict):
+    # When printing the output of search_results, normally the defaultdict
+    # type would be shown as well. To print the `search_results` normally,
+    # defining a PrettyDefaultDict type that is printable the same way as a
+    # dict, is easier/faster than json.load(json.dump(x)) etc. and we don't
+    # actually have to deal with encoding either.
+    __repr__ = dict.__repr__
 
 
 class _Subdirectory_Managing_Decorator(ContextDecorator):
