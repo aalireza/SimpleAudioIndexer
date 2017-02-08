@@ -21,7 +21,7 @@ from __future__ import absolute_import, division, print_function
 from ast import literal_eval
 from collections import defaultdict, Counter
 from distutils.spawn import find_executable
-from functools import reduce
+from functools import reduce, wraps
 from math import floor
 from shutil import rmtree
 from string import ascii_letters
@@ -37,7 +37,23 @@ if sys.version_info >= (3, 0):
     unicode = str
     long = int
 else:
-    from contextlib2 import ContextDecorator
+    class ContextDecorator(object):
+        """A base class or mixin that enables context managers to work as
+        decorators.
+
+        Code is from Python's source:
+        https://hg.python.org/cpython/file/3.6/Lib/contextlib.py
+        """
+
+        def _recreate_cm(self):
+            return self
+
+        def __call__(self, func):
+            @wraps(func)
+            def inner(*args, **kwds):
+                with self._recreate_cm():
+                    return func(*args, **kwds)
+            return inner
 
 
 class SimpleAudioIndexer(object):
