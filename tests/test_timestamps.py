@@ -2,7 +2,6 @@ from SimpleAudioIndexer import SimpleAudioIndexer as sai
 import os
 import pytest
 
-
 timestamp = {
     'test.wav': [
         [['This', 0.01, 0.05],
@@ -67,8 +66,7 @@ def indexer(monkeypatch):
     monkeypatch.setattr(indexer_obj, '_list_audio_files',
                         lambda sub_dir: (
                             ["test000", "test001",
-                             "other000", "other001",
-                             "another000", "another001"]
+                             "other000", "another000", "another001"]
                             if sub_dir == "staging" else None))
     monkeypatch.setattr(indexer_obj, '_get_audio_duration_seconds',
                         lambda staged_audio: audio_len[staged_audio])
@@ -76,4 +74,4 @@ def indexer(monkeypatch):
 
 
 def test_get_timestamped_audio(indexer):
-    assert indexer.get_timestamps() == expected_result
+    assert indexer._timestamp_regulator() == expected_result

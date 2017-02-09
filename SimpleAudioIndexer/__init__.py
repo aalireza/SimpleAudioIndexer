@@ -907,6 +907,7 @@ class SimpleAudioIndexer(object):
         If mode is `ibm`, _indexer_audio_ibm is called which is an interface
         for Watson. Note that some of the explaination of _indexer_audio_ibm's
         arguments is from [1]_
+
         If mode is `cmu`, _indexer_audio_cmu is called which is an interface
         for PocketSphinx Beware that the output would not be sufficiently
         accurate. Use this only if you don't want to upload your files to IBM.
@@ -926,9 +927,9 @@ class SimpleAudioIndexer(object):
         replace_already_indexed : bool
 
             `True`, To reindex some audio file that's already in the
-             timestamps.
+            timestamps.
 
-             Default is `False`.
+            Default is `False`.
 
         continuous : bool
 
@@ -1041,6 +1042,14 @@ class SimpleAudioIndexer(object):
             type(possibly_word_block[2]) in {int, long, float}
         )
 
+    def _timestamp_basename_is_regulated(self, timestamp_basename):
+        number_of_splitted_files = len(self.__timestamps[timestamp_basename])
+        if number_of_splitted_files > 1:
+            return False
+        return all([self._word_block_validator(maybe_word_block)
+                    for maybe_word_block in self.__timestamps[
+                            timestamp_basename][0]])
+
     def _timestamp_regulator(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
@@ -1067,44 +1076,48 @@ class SimpleAudioIndexer(object):
         -------
         unified_timestamp : {str: [[str, float, float]]}
         """
-        if all([self._word_block_validator(possibly_word_block)
-                for audio_basename in self.__timestamps
-                for possibly_word_block in self.__timestamps[audio_basename]]):
-            # Returns the already save timestamps, if they are time regular
-            # and/or have been loaded (which necessarily makes them time
-            # regulated)
-            return self.__timestamps
-        staged_files = self._list_audio_files(sub_dir="staging")
         unified_timestamps = PrettyDefaultDict(list)
+        staged_files = self._list_audio_files(sub_dir="staging")
         for timestamp_basename in self.__timestamps:
-            timestamp_name = ''.join(timestamp_basename.split('.')[0])
-            if type(self.__timestamps[timestamp_basename][0][0]) is list:
-                staged_splitted_file_basenames = list(
-                    filter(lambda x: timestamp_name in x, staged_files))
-                if staged_splitted_file_basenames is None:
+            if not self._timestamp_basename_is_regulated(timestamp_basename):
+                timestamp_name = ''.join(timestamp_basename.split('.')[:-1])
+                staged_splitted_files_of_timestamp = list(
+                    filter(lambda staged_file: (
+                        timestamp_name == staged_file[:-3] and
+                        all([(x in set(map(str, range(10))))
+                             for x in staged_file[-3:]])
+                    ), staged_files))
+                if staged_splitted_files_of_timestamp is None:
+                    self.__errors[(time(), timestamp_basename)] = {
+                        "reason": "Missing staged file",
+                        "current_staged_files": staged_files
+                    }
                     continue
-                staged_splitted_file_basenames.sort()
+                staged_splitted_files_of_timestamp.sort()
                 unified_timestamp = list()
-                seconds_passed = 0
-                for split_index, splitted_file_timestamp in enumerate(
-                  self.__timestamps[timestamp_basename]):
-                    total_seconds = self._get_audio_duration_seconds(
-                        "{}/staging/{}".format(
-                            self.src_dir,
-                            staged_splitted_file_basenames[split_index]))
-                    if splitted_file_timestamp is not False:
-                        # If no part of the big audio is left unindexed.
-                        unified_timestamp += map(
-                            lambda word: [word[0],
-                                          round(word[1] + seconds_passed, 2),
-                                          round(word[2] + seconds_passed, 2)],
-                            splitted_file_timestamp
-                        )
-                    seconds_passed += total_seconds
-                unified_timestamps[str(timestamp_basename)] = unified_timestamp
+                for staging_digits, splitted_file in enumerate(
+                        self.__timestamps[timestamp_basename]):
+                    prev_splits_sec = 0
+                    if int(staging_digits) != 0:
+                        prev_splits_sec = self._get_audio_duration_seconds(
+                            "{}/staging/{}{:03d}".format(
+                                self.src_dir, timestamp_name,
+                                staging_digits - 1
+                            ))
+                    for splitted_file_timestamp in splitted_file:
+                        unified_timestamp.append([
+                            splitted_file_timestamp[0],
+                            round(splitted_file_timestamp[1] +
+                                  prev_splits_sec, 2),
+                            round(splitted_file_timestamp[2] +
+                                  prev_splits_sec, 2)
+                        ])
+                unified_timestamps[
+                    str(timestamp_basename)] += unified_timestamp
             else:
-                unified_timestamps[timestamp_basename] = self.__timestamps[
-                    timestamp_basename]
+                print("here", timestamp_basename)
+                unified_timestamps[timestamp_basename] += self.__timestamps[
+                    timestamp_basename][0]
         return unified_timestamps
 
     def save_indexed_audio(self, indexed_audio_file_abs_path):
