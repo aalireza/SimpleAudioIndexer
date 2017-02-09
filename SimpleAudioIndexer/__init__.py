@@ -219,7 +219,8 @@ class SimpleAudioIndexer(object):
         """
         if self.src_dir is not None:
             for directory in self._needed_directories:
-                rmtree("{}/{}".format(self.src_dir, directory))
+                if os.path.exists("{}/{}".format(self.src_dir, directory)):
+                    rmtree("{}/{}".format(self.src_dir, directory))
 
     def get_mode(self):
         """
@@ -1678,4 +1679,5 @@ class _Subdirectory_Managing_Decorator(ContextDecorator):
             """
             if self.src_dir is not None:
                 for directory in self.needed_directories:
-                    rmtree("{}/{}".format(self.src_dir, directory))
+                    if os.path.exists("{}/{}".format(self.src_dir, directory)):
+                        rmtree("{}/{}".format(self.src_dir, directory))
