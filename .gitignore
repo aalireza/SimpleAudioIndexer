@@ -91,5 +91,8 @@ ENV/
 # Vim files
 .*.sw?
 
+# Emacs files
+.#*
+
 # DS Store
 .DS_Store
