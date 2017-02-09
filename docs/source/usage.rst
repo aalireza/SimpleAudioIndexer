@@ -33,23 +33,31 @@ script.
 
 Timestamps
 ++++++++++
-Enter the command below (replace `USERNAME` and `PASSWORD` with your Watson
-credentials) and replace `SRC_DIR` with the absolute path to the directory
-in which your audio files are located):
+You can either choose to use Watson as your speech to text engine or
+Pocketsphinx.
+
+Say your choice is Watson, then enter the command below (replace
+`USERNAME` and `PASSWORD` with your Watson credentials) and replace `SRC_DIR`
+with the absolute path to the directory in which your audio files are located):
 
 ::
 
-   sai -u USERNAME -p PASSWORD -d SRC_DIR -t
+   sai --mode "ibm" --username_ibm USERNAME --password_ibm PASSWORD --src_dir SRC_DIR --timestamps
 
 The command above should give you the timestamps of all the words within the
 audio.
 
-Note that the switches `-u`, `-p` and `-d` are required for anything you want
-to do. In other words, you have to specify your username, password and audio
-directory for anything you want to do.
+Note that the switches `--mode` and `--src_dir` are required for anything you
+want to do. If your choice of mode is `ibm`, then the switches `username_ibm`
+and `password_ibm` would be required as well.
 
-Whatever comes after `-d` is optional. You've used `-t` to get timestamps,
-however you may use `-s` if you want to search fomr something.
+There are some optional switches as well. You've used `--timestamps` to get
+timestamps, however you may use `--search` if you want to search for something,
+or `--regexp` to search with regular expressions etc.
+
+For the rest of this tutorial we assume that your choice of mode is `ibm`. If
+your choice is `cmu`, then you no longer need to ibm switches, but everything
+else remains the same.
 
 Search Commands
 +++++++++++++++
@@ -57,43 +65,45 @@ Say you want to search for the string "apple", then your command would be:
 
 ::
 
-  sai -u USERNAME -p PASSWORD -d SRC_DIR -s "apple"
+  sai --mode ibm --src_dir SRC_DIR --username_ibm USERNAME --password_ibm PASSWORD --search "apple"
 
-You may also search for a regex pattern via the switch `-r`:
+You may also search for a regex pattern via the switch `--regexp`:
 
 ::
 
-   sai -u USERNAME -p PASSWORD -d SRC_DIR -r "[a-z][a-z]"
+  sai --mode ibm --src_dir SRC_DIR --username_ibm USERNAME --password_ibm PASSWORD --regexp " [a-z][a-z] "
 
 Note that you cannot simultaneously use `-s` and `-r`!
 
 The default language is American English. If you want to use another
-language/accent, then use the switch `-m`. For the list of all models, see the
-reference `here <./reference.html>`__.
+language/accent, then use the switch `--language`. For the list of all models,
+see the reference `here <./reference.html>`__.
+
+Note that `--language` switch doesn't work for `cmu` mode.
 
 Saving & Loading indexed data
 +++++++++++++++++++++++++++++
 The last thing worth mentioning, is that, say your audio files are big enough
 that you don't want to spend time indexing them every time you run the script,
-then you should use the switch `-f` followed by an absolute path to a file
-into which the indexed data would be written. If such a file doesn't exist,
+then you should use the switch `--save-data` followed by an absolute path to a
+file into which the indexed data would be written. If such a file doesn't exist,
 it'll be created.
 
 For example, say I want to write the indexed data into my Documents directory
-with the name `indexed_data.txt`. Then the command would be:
+with the name `indexed_data`. Then the command would be:
 
 ::
    
-   sai -u USERNAME -p PASSWORD -d SRC_DIR -f /home/alireza/Documents/indexed_data.txt
+  sai --mode ibm --src_dir SRC_DIR --username_ibm USERNAME --password_ibm PASSWORD --save-data ABSOLUTE_PATH_TO_A_FILE_TO_BE_CREATED/indexed_data
 
 Next time that I want to search the those audio files, I'll enter:
 
 ::
 
-  sai -l /home/alireza/Documents/indexed_data.txt -s "something"
+  sai --mode ibm --load_data ABOSLUTE_PATH_INDEXED_DATA --search "stuff"
 
 Note that whenever you're loading your data, you no longer have to enter your
-username and password and src_dir.
+username and password and src_dir, but you still need to specify your mode.
 
 
 As a Python library
@@ -125,12 +135,11 @@ Afterwards, you should create an instance of `sai`
 
 .. code-block:: python
 
-  >>> indexer = sai(USERNAME, PASSWORD, SRC_DIR)
+  >>> indexer = sai(mode="ibm", src_dir="SRC_DIR", username_ibm="USERNAME", password_ibm="PASSWORD)
 
 
-Once you have initialized `indexer`, two directories called `staging` and
-`filtered` will be created within `SRC_DIR` to handle temporary files and cache
-intermediary results.
+Note that if you choose your mode to be `cmu`, then you no longer have to provide
+username and passwords of your Watson account.
 
 Indexing
 ++++++++
@@ -141,12 +150,15 @@ Now you may index all the available audio files by calling `index_audio` method:
   >>> indexer.index_audio()
 
 
-You could also just index a particular audio file. Say you only wish to index
-`SRC_DIR/target.wav`, then:
+This method automatically created two directories `filtered` and `staging`
+within your `src_dir` to handle intermediarry files.
+
+Also, you could also just index a particular audio file. Say you only wish to
+index `SRC_DIR/target.wav`, then:
 
 .. code-block:: python
 
-   >>> indexer.index_audio(name=target)
+   >>> indexer.index_audio(basename=target.wav)
 
 For more information on all arguments of this method (including other languages
 or accuracy etc.) read the API reference `here <./reference.html
@@ -164,7 +176,7 @@ request. Then save your data:
 
 .. code-block:: python
 
-  >>> indexer.save_indexed_audio("{}/indexed_audio.txt".format(indexer.src_dir))
+  >>> indexer.save_indexed_audio("{}/indexed_audio".format(indexer.src_dir))
   
 
 Afterwards, all the timestamps of the audios would be saved in
@@ -183,13 +195,13 @@ a private attribute. They should not be accessed since if the audio files were
 large and they were splitted, then the timing won't be correct.
 
 The time corrected/regularized however can be accessed via
-`get_timestamped_audio` method. Say there are two audio files in `SRC_DIR`
+`get_timestamps` method. Say there are two audio files in `SRC_DIR`
 called `audio.wav` and `another.wav`. Then the timestamps would look something
 like below:
 
 .. code-block:: python
 
-  >>> print(indexer.get_timestamped_audio())
+  >>> print(indexer.get_timestamps())
   {"audio.wav": [["hello", 0.01, 0.05], ["how", 0.05, 0.08], ["are", 0.08, 0.11],
   ["you", 0.11, 0.14]], "another": [["yo", 0.01, 0.02]]}
 
@@ -201,7 +213,7 @@ word.
 
 Searching methods
 +++++++++++++++++
-Now, search methods all use the `get_timestamped_audio` internally. Say after
+Now, search methods all use the `get_timestamps` internally. Say after
 indexing, you finally wanted to do a search.
 
 You could have a searching generator:
@@ -253,6 +265,6 @@ maybe nontrivial to write the correct pattern).
 The open ended nature of `search_regexp` is intended to compliment `search_gen`.
 
 
-That's it! you know everything you need. There are some private methods
-regarding audio handling etc. that you can see in the source code, though you
-shouldn't theoretically need to change them!
+That's it! You know enough to get started. I recemmend taking a look at API
+reference `here <./reference.html>`__ to learn more about other methods that
+have been implemented.

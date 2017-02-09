@@ -10,6 +10,8 @@ Installation
 .. _tox: https://tox.readthedocs.io/en/latest/
 .. _pip: https://pypi.python.org/pypi/pip
 .. _dockerfile.txt: https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/Dockerfile.txt
+.. _ffmpeg: https://ffmpeg.org/
+.. _cmusphinx: http://cmusphinx.sourceforge.net/wiki/tutorialpocketsphinx#installation
 
 There are two main ways to install `sai`_:
 
@@ -91,6 +93,47 @@ You may also enter in a Python shell:
 If you didn't see any error messages, then `sai`_ is successfully installed!
 
 That's it! you've installed `sai`_ successfully! 
+
+
+Offline indexing with CMU Pocketsphinx
+--------------------------------------
+You have an option to use CMU Pocketsphinx as your audio indexer. Note that the
+quality of Pocketsphinx is at "pre-alpha" level which means almsot never you'd
+see a result that's perfectly accurate.
+
+Only use this option if you don't want your files being uploaded to Watson's
+servers, or you're on Windows and don't want to go in the `Docker route`_.
+
+
+First step: Installing ffmpeg
++++++++++++++++++++++++++++++
+You need to install `ffmpeg`_ to regularize the encoding of your audio files.
+
+If you're on Linux, it should probably be in your repositories. You may download
+ffmpeg on Ubuntu via
+
+::
+
+    sudo apt-get install ffmpeg
+
+If you're on Mac, you may either go to `ffmpeg`_ 's website and download it, or
+install it via `homebrew`_ by entering:
+
+::
+
+   brew install ffmpeg
+
+Second step: Installing Pocketsphinx
+++++++++++++++++++++++++++++++++++++
+Use the official guide `here <http://cmusphinx.sourceforge.net/wiki/tutorialpocketsphinx#installation>`__
+to compile it. The guide is relatively straightforward.
+
+Note that unless you know aboslutely what you're doing, don't install
+prepackaged versions e.g. from your distributions repositories etc.
+
+Third step: Installing everything else
+++++++++++++++++++++++++++++++++++++++
+Install `sox`_ and `sai`_ natively, as it was described previously!
 
 
 Docker route
@@ -181,6 +224,28 @@ and drop wherever you've installed it!
 
 That's it! You've uninstalled `sai`_ successfully!
 
+Uninstalling CMU Pocketsphinx
++++++++++++++++++++++++++++++
+You may uninstall `sox`_ and `sai`_ like it was described above. For
+uninstalling `ffmpeg`_, proceed similarly to `sox`_ i.e. if you're on an Ubuntu
+
+::
+   sudo apt uninstall ffmpeg
+
+or on Mac using `homebrew`_
+
+::
+
+   brew uninstall ffmpeg
+
+To uninstall CMU Sphinx, go into the directory which you've compiled it and
+enter:
+
+::
+
+  make uninstall
+
+And then remove that directory.
 
 Uninstall the Docker version
 ++++++++++++++++++++++++++++
