@@ -719,7 +719,7 @@ class SimpleAudioIndexer(object):
                 if self.get_verbosity():
                     print(e, "The command was: {}".format(
                         pocketsphinx_command))
-                self.__errors[time()] = e
+                self.__errors[(time(), staging_audio_basename)] = e
 
         self.__timestamps = self._timestamp_regulator()
 
@@ -821,8 +821,7 @@ class SimpleAudioIndexer(object):
         profanity_filter_for_US_results : bool
             Indicates whether profanity filtering is performed on the
             transcript. If true, the service filters profanity from all output
-            except for keyword results by replacing inappropriate words with a
-            series of asterisks.
+            by replacing inappropriate words with a series of asterisks.
 
             If false, the service returns results with no censoring. Applies
             to US English transcription only.
@@ -993,8 +992,7 @@ class SimpleAudioIndexer(object):
 
             Indicates whether profanity filtering is performed on the
             transcript. If true, the service filters profanity from all output
-            except for keyword results by replacing inappropriate words with a
-            series of asterisks.
+            by replacing inappropriate words with a series of asterisks.
 
             If false, the service returns results with no censoring. Applies
             to US English transcription only.
