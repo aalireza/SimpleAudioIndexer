@@ -20,7 +20,7 @@ def argument_handler():
                         help="Search for a word within the audios of src_dir")
     search.add_argument("-r", "--regexp", type=str,
                         help="Match regex patterns")
-    parser.add_argument("-t", "--show_timestamps", action='store_true',
+    parser.add_argument("-t", "--timestamps", action='store_true',
                         help="prints a timestamp of the audio")
     parser.add_argument("-n", "--audio_name", type=str,
                         help=("Only index the given audio file (e.g. example" +
@@ -53,7 +53,7 @@ def argument_handler():
     ), ("You cannot choose an IBM language model if the chosen mode is `cmu`")
 
     return (args.src_dir, args.mode, args.username_ibm, args.password_ibm,
-            args.search, args.regexp, args.show_timestamps, args.audio_name,
+            args.search, args.regexp, args.timestamps, args.audio_name,
             args.language, args.verbose, args.save_data, args.load_data)
 
 
@@ -61,7 +61,7 @@ def Main():
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
     from SimpleAudioIndexer import SimpleAudioIndexer
 
-    (src_dir, mode, username_ibm, password_ibm, word, pattern, show_timestamps,
+    (src_dir, mode, username_ibm, password_ibm, word, pattern, timestamps,
      audio_name, language, verbose, save_data, load_data) = argument_handler()
 
     def cli_script_wrapped(indexer):
@@ -77,8 +77,8 @@ def Main():
                 indexer.index_audio(name=audio_name)
         if save_data:
             indexer.save_indexed_audio(save_data)
-        if show_timestamps:
-            pprint(indexer.get_timestamped_audio())
+        if timestamps:
+            pprint(indexer.get_timestamps())
         if audio_name is not None:
             if word is not None:
                 pprint(indexer.search_all(
