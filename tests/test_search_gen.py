@@ -22,19 +22,16 @@ timestamp = {
 }
 
 
-@pytest.fixture(params=["ibm", "cmu"])
-def indexer(monkeypatch, request):
+@pytest.fixture(autouse=True)
+def indexer(monkeypatch):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
-    if request.param == "ibm":
-        indexer = sai(src_dir="src_dir", mode="ibm", username_ibm="username",
-                      password_ibm="password")
-    elif request.param == "cmu":
-        indexer = sai(src_dir="src_dir", mode="cmu")
-    monkeypatch.setattr(indexer, 'get_timestamped_audio',
+    indexer_obj = sai(mode="ibm", src_dir="src_dir",
+                      username_ibm="username", password_ibm="password")
+    monkeypatch.setattr(indexer_obj, 'get_timestamps',
                         lambda: timestamp)
-    indexer.__timestamps = timestamp
-    return indexer
+    indexer_obj.__timestamps = timestamp
+    return indexer_obj
 
 
 def result_template(query, filename, result):
@@ -84,13 +81,14 @@ def test_search_gen(indexer, query, case_sensitive, filename_for_result,
         with pytest.raises(AssertionError) as e:
             actual_results = list(indexer.search_gen(**actual_kwargs))
             assert str(e.value) == (
-                "The number of words that can be missing must be less " +
-                "than the total number of words within the query"
+                "The number of words that can be missing must be less than " +
+                "the total number of words within the query"
                 )
     else:
         actual_results = list(indexer.search_gen(**actual_kwargs))
         assert ((expected_results == actual_results) or
                 (expected_results in actual_results))
+
 
 @pytest.mark.parametrize(("audio_basename"), [
     None, "specified"

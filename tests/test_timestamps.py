@@ -55,15 +55,13 @@ expected_result = {
     ]
 }
 
-@pytest.fixture(params=["ibm", "cmu"])
-def indexer(monkeypatch, request):
+
+@pytest.fixture(autouse=True)
+def indexer(monkeypatch):
     monkeypatch.setattr(os.path, 'exists', lambda path: True)
     monkeypatch.setattr(os, 'mkdir', lambda path: None)
-    if request.param == "ibm":
-        indexer_obj = sai(src_dir="src_dir", mode="ibm",
-                          username_ibm="username", password_ibm="password")
-    elif request.param == "cmu":
-        indexer_obj = sai(src_dir="src_dir", mode="cmu")
+    indexer_obj = sai(mode="ibm", src_dir="src_dir",
+                      username_ibm="username", password_ibm="password")
     monkeypatch.setitem(indexer_obj.__dict__,
                         "_SimpleAudioIndexer__timestamps", timestamp)
     monkeypatch.setattr(indexer_obj, '_list_audio_files',
@@ -78,4 +76,4 @@ def indexer(monkeypatch, request):
 
 
 def test_get_timestamped_audio(indexer):
-    assert indexer.get_timestamped_audio() == expected_result
+    assert indexer.get_timestamps() == expected_result
