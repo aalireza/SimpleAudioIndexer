@@ -41,13 +41,13 @@ else:
     import cPickle as pickle
 
     class ContextDecorator(object):
-        """A base class or mixin that enables context managers to work as
+        """
+        A base class or mixin that enables context managers to work as
         decorators.
 
         Code is from Python's source:
         https://hg.python.org/cpython/file/3.6/Lib/contextlib.py
         """
-
         def _recreate_cm(self):
             return self
 
@@ -110,6 +110,17 @@ class SimpleAudioIndexer(object):
     set_username_ibm()
     get_password_ibm()
     set_password_ibm()
+    get_verbosity()
+    set_verbosity()
+    get_timestamps()
+        Returns a corrected dictionary whose key is the original file name and
+        whose value is a list of words and their beginning and ending time. It
+        accounts for large files and does the timing calculations to return the
+        correct result.
+    get_errors()
+        Returns a dictionary that has all the erros that have occured while
+        processing the audio file. Dictionary contains time of error, file that
+        had the error and the actual error.
     _index_audio_ibm(name=None, continuous=True, model="en-US_BroadbandModel",
                      word_confidence=True, word_alternatives_threshold=0.9,
                      profanity_filter_for_US_results=False)
@@ -117,7 +128,6 @@ class SimpleAudioIndexer(object):
     _index_audio_cmu(name=None)
         Implements an experimental interface for the CMu Pocketsphinx
     index_audio(*args, **kwargs)
-    get_timestamps()
         Returns a corrected dictionary whose key is the original file name and
         whose value is a list of words and their beginning and ending time. It
         accounts for large files and does the timing calculations to return the
@@ -213,6 +223,8 @@ class SimpleAudioIndexer(object):
 
     def get_mode(self):
         """
+        Returns whether the instance is initialized with `ibm` or `cmu` mode.
+
         Returns
         -------
         str
@@ -274,15 +286,54 @@ class SimpleAudioIndexer(object):
             )
 
     def get_verbosity(self):
+        """
+        Returns whether the instance is initialized to be quite or loud while
+        processing audio files.
+
+        Returns
+        -------
+        bool
+            True for being verbose.
+        """
         return self.verbose
 
     def set_verbosity(self, pred):
+        """
+        Parameters
+        ----------
+        pred : bool
+        """
         self.verbose = bool(pred)
 
     def get_timestamps(self):
+        """
+        Returns a dictionary whose keys are audio file basenames and whose
+        values are a list of word blocks (a word block is a list which has
+        three elements, first one is a word <str>, second one is the starting
+        second <float> and the third on is the ending second <float>).
+        In case the audio file was large enough to be splitted, it adds seconds
+        to correct timing and in case the timestamp was manually loaded, it
+        leaves it alone.
+
+        Returns
+        -------
+        {str: [[str, float, float]]}
+        """
         return self.__timestamps
 
     def get_errors(self):
+        """
+        Returns a dictionary containing any errors while processing the
+        audio files. Works for either mode.
+
+        Returns
+        -------
+        {(float, str): any}
+            The return is a dictionary whose keys are tuples whose first
+            elements are the time of the error and whose second values are
+            the audio file's name.
+            The values of the dictionary are the actual errors.
+        """
         return self.__errors
 
     def _list_audio_files(self, sub_dir=""):
@@ -507,7 +558,7 @@ class SimpleAudioIndexer(object):
         name = ''.join(basename.split('.')[:-1])
         # May cause problems if wav is not less than 9 channels.
         if basename.split('.')[-1] == "wav":
-            if self.verbose:
+            if self.get_verbosity():
                 print("Found wave! Copying to {}/filtered/{}".format(
                     self.src_dir, basename))
             subprocess.Popen(["cp", "{}/{}.wav".format(self.src_dir, name),
@@ -535,7 +586,7 @@ class SimpleAudioIndexer(object):
             total_size = os.path.getsize("{}/filtered/{}.wav".format(
                 self.src_dir, name))
             if total_size >= self.ibm_api_limit_bytes:
-                if self.verbose:
+                if self.get_verbosity():
                     print(("{}'s size over API limit ({}). Splitting").format(
                         name, self.ibm_api_limit_bytes))
                 self._split_audio_by_size(
@@ -543,7 +594,7 @@ class SimpleAudioIndexer(object):
                     "{}/staging/{}*.wav".format(self.src_dir, name),
                     self.ibm_api_limit_bytes * 95 / 100)
             else:
-                if self.verbose:
+                if self.get_verbosity():
                     print("{}'s size is fine. Moving to staging dir'".format(
                         name))
                 subprocess.Popen((
@@ -553,7 +604,7 @@ class SimpleAudioIndexer(object):
                                  universal_newlines=True).communicate()
 
         elif self.get_mode() == "cmu":
-            if self.verbose:
+            if self.get_verbosity():
                 print("Converting {} to a readable wav".format(basename))
             ffmpeg = os.path.basename(find_executable("ffmpeg") or
                                       find_executable("avconv"))
@@ -561,16 +612,22 @@ class SimpleAudioIndexer(object):
                 raise Exception(("Either ffmpeg or avconv is needed. "
                                  "Neither is installed or accessible"))
             try:
+                # ffmpeg log levels:
+                # https://ffmpeg.org/ffmpeg.html#Generic-options
+                ffmpeg_log_level = "8"  # fatal errors.
+                if self.get_verbosity():
+                    ffmpeg_log_level = "32"  # info `default for ffmpeg`
                 subprocess.check_call([
                     str(ffmpeg), "-y", "-i", "{}/filtered/{}.wav".format(
                         self.src_dir, str(name)), "-acodec", "pcm_s16le",
                     "-ac", "1", "-ar", "16000", "{}/staging/{}000.wav".format(
-                        self.src_dir, name)], universal_newlines=True)
+                        self.src_dir, name),
+                    "-v", ffmpeg_log_level], universal_newlines=True)
             except subprocess.CalledProcessError as e:
                 print(e)
             if os.path.exists("{}/staging/{}000.wav".format(
                     self.src_dir, name)):
-                if self.verbose:
+                if self.get_verbosity():
                     print(("{}/filtered/{} was converted to "
                            "{}/staging/{}000.wav Now removing the copy of "
                            "{} in filtered sub directory").format(
@@ -659,7 +716,7 @@ class SimpleAudioIndexer(object):
                     self._timestamp_extractor_cmu(
                         staging_audio_basename, str_timestamps_with_sil_conf))
             except OSError as e:
-                if self.verbose:
+                if self.get_verbosity():
                     print(e, "The command was: {}".format(
                         pocketsphinx_command))
                 self.__errors[time()] = e
@@ -781,6 +838,7 @@ class SimpleAudioIndexer(object):
                   'word_alternatives_threshold': word_alternatives_threshold,
                   'word_confidence': word_confidence,
                   'timestamps': True,
+                  'inactivity_timeout': str(-1),
                   'profanity_filter': profanity_filter_for_US_results}
 
         self._prepare_audio(basename=basename,
@@ -793,7 +851,7 @@ class SimpleAudioIndexer(object):
             )[:-3]
             with open("{}/staging/{}".format(
                     self.src_dir, staging_audio_basename), "rb") as f:
-                if self.verbose:
+                if self.get_verbosity():
                     print("Uploading {}...".format(staging_audio_basename))
                 response = requests.post(
                     url=("https://stream.watsonplatform.net/"
@@ -802,7 +860,7 @@ class SimpleAudioIndexer(object):
                     headers={'content-type': 'audio/wav'},
                     data=f.read(),
                     params=params)
-                if self.verbose:
+                if self.get_verbosity():
                     print("Indexing {}...".format(staging_audio_basename))
                     print(self.__timestamps)
                 self.__timestamps[original_audio_name + ".wav"].append(
@@ -838,7 +896,7 @@ class SimpleAudioIndexer(object):
             ]
         except KeyError:
             self.__errors[(time(), staging_audio_basename)] = audio_json
-            if self.verbose:
+            if self.get_verbosity():
                 print(audio_json)
                 print("The resulting request from Watson was unintelligible.")
             return False
@@ -996,7 +1054,8 @@ class SimpleAudioIndexer(object):
         leaves it alone.
 
         Note that even if no operation is done on the word blocks, the output
-        of this method would be different than that of self.__timestamps.
+        of this method would be different than that of self.__timestamps while
+        index_audio method is still running.
         The timestamps attribute is a dictionary whose keys are basenames but
         whose values are lists corresponding to different blocks of 100Mbs or
         less splitted audio files and each list is then composed of lists of
