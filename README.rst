@@ -49,11 +49,11 @@ To read the documentation, visit `here <http://simpleaudioindexer.readthedocs.io
 Requirements
 ------------
 
-+ Python 2.7, 3.3, 3.4, 3.5, 3.6 with pip installed.
++ Python (v2.7, 3.3, 3.4, 3.5 or 3.6) with pip installed.
 + Watson API Credentials and/or CMU Pocketsphinx
 + `sox`
-+ `ffmpeg` if you choose CMU Pocketsphinx.
-+ `py.text` and `tox` if you want to run the tests.
++ `ffmpeg` (if you choose CMU Pocketsphinx)
++ `py.text` and `tox` (if you want to run the tests)
 
 
 Installation
@@ -88,20 +88,11 @@ system. For more information, visit `here <https://simpleaudioindexer.readthedoc
 Demo
 ----
 
-Say you have this audio file:
+Say you have this audio file:  |small_audio|
 
-.. raw:: html
-  <audio src="https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav" controls>
-    <embed
-      src="https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav"
-      width="300"
-      height="90"
-      loop="false"
-      autostart="false>
-  </audio>
 
-Have it downloaded to a directory. We'd refer to that directory as `SRC_DIR`
-and the name of this audio file as `small_audio.wav`
+Have it downloaded to an empty directory for simplicity. We'd refer to that
+directory as `SRC_DIR` and the name of this audio file as `small_audio.wav`.
 
 Here's how you can search through it.
 
@@ -113,6 +104,7 @@ Open up a terminal and enter.
 ::
 
    $ sai --mode "ibm" --username_ibm USERNAME --password_ibm PASSWORD --src_dir SRC_DIR --search "called"
+
    {'called': {'small_audio.wav': [(1.25, 1.71)]}}
 
 Replace `USERNAME` and `PASSWORD` with your IBM Watson's credentials and `SRC_DIR`
@@ -138,6 +130,7 @@ Instead of searching for a word, you could also match a regex pattern, for examp
 ::
 
    $ sai --mode ibm --src_dir SRC_DIR --username_ibm USERNAME --password_ibm PASSWORD --regexp " [a-z][a-z] "
+
    {u' in ': {'small_audio.wav': [(2.81, 2.93)]},
    {u' to ': {'small_audio.wav': [(1.71, 1.81)]}}
    
@@ -250,5 +243,9 @@ file for more details.
 
 .. |wheel| image:: https://img.shields.io/pypi/wheel/SimpleAudioIndexer.svg 
           :alt: Wheel ready
+
+.. |small_audio| image:: http://rafiei.net/assets/play_button.png
+                :target: https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav
+                :alt: Demo audio file
 
 .. _Documentation: https://github.com/aalireza/SimpleAudioIndexer/docs
