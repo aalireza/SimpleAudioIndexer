@@ -33,10 +33,8 @@ setup(
         )
     ),
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
-        "Topic :: Communications",
-        "Topic :: Multimedia",
         "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Utilities",
@@ -51,7 +49,8 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     keywords=["audio", "indexing", "search", "ibm", "watson", "anagram",
-              "subsequence", "supersequence", "sequence", "timestamp"],
+              "subsequence", "supersequence", "sequence", "timestamp", "cmu",
+              "sphinx", "cpmsphinx", "speech", "speech recognition"],
     entry_points={
           'console_scripts': [
               'sai = SimpleAudioIndexer.__main__:Main',
