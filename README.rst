@@ -88,7 +88,9 @@ system. For more information, visit `here <https://simpleaudioindexer.readthedoc
 Demo
 ----
 
-Say you have this audio file:  |small_audio|
+Say you have this audio file:
+
+|small_audio|
 
 
 Have it downloaded to an empty directory for simplicity. We'd refer to that
