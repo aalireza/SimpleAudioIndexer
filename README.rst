@@ -14,7 +14,7 @@ SimpleAudioIndexer
 - `Requirements <#requirements>`__
 - `Installation <#installation>`__
 - `Uninstallation <#uninstallation>`__
-- `Command-line Usage <#command-line-usage>`__
+- `Demo <#demo>`__
 - `Nice to implement in the future <#nice-to-implement-in-the-future>`__
 - `Contributing <#contributing>`__
 - `Authors <#authors>`__
