@@ -1,4 +1,5 @@
 from SimpleAudioIndexer import SimpleAudioIndexer as sai
+from SimpleAudioIndexer import _WordBlock as WordBlock
 import os
 import pytest
 
@@ -20,6 +21,12 @@ timestamp = {
                  ['This', 0.3, 0.4],
                  ['in', 0.4, 0.5]]
 }
+
+timestamp = {basename: list(map(
+    lambda word_block: (WordBlock(word=word_block[0],
+                                  start=word_block[1],
+                                  end=word_block[2])), timestamp[basename]))
+             for basename in timestamp}
 
 
 @pytest.fixture(autouse=True)

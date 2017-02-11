@@ -1,4 +1,5 @@
 from SimpleAudioIndexer import SimpleAudioIndexer as sai
+from SimpleAudioIndexer import _WordBlock as WordBlock
 import os
 import pytest
 
@@ -53,6 +54,20 @@ expected_result = {
         ['another', 0.71, 1.01]
     ]
 }
+timestamp = {basename: [
+    list(map(
+        lambda word_block: (WordBlock(word=word_block[0],
+                                      start=word_block[1],
+                                      end=word_block[2])), timestamp_split))
+    for timestamp_split in timestamp[basename]]
+             for basename in timestamp}
+
+expected_result = {basename: list(map(
+    lambda word_block: (WordBlock(word=word_block[0],
+                                  start=word_block[1],
+                                  end=word_block[2])),
+    expected_result[basename]))
+                    for basename in expected_result}
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +77,8 @@ def indexer(monkeypatch):
     indexer_obj = sai(mode="ibm", src_dir="src_dir",
                       username_ibm="username", password_ibm="password")
     monkeypatch.setitem(indexer_obj.__dict__,
-                        "_SimpleAudioIndexer__timestamps", timestamp)
+                        "_SimpleAudioIndexer__timestamps_unregulated",
+                        timestamp)
     monkeypatch.setattr(indexer_obj, '_list_audio_files',
                         lambda sub_dir: (
                             ["test000", "test001",
@@ -74,4 +90,5 @@ def indexer(monkeypatch):
 
 
 def test_get_timestamped_audio(indexer):
-    assert indexer._timestamp_regulator() == expected_result
+    indexer._timestamp_regulator()
+    assert indexer.get_timestamps() == expected_result

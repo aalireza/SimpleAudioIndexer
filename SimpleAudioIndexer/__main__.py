@@ -72,9 +72,9 @@ def Main():
                 else:
                     indexer.index_audio()
             elif mode == "ibm":
-                indexer.index_audio(model=language, name=audio_name)
+                indexer.index_audio(model=language, basename=audio_name)
             else:
-                indexer.index_audio(name=audio_name)
+                indexer.index_audio(basename=audio_name)
         if save_data:
             indexer.save_indexed_audio(save_data)
         if timestamps:
@@ -82,10 +82,10 @@ def Main():
         if audio_name is not None:
             if word is not None:
                 pprint(indexer.search_all(
-                    word, audio_basename="{}.wav".format(audio_name)))
+                    word, audio_basename=audio_name))
             else:
                 pprint(indexer.search_regexp(
-                    pattern, audio_basename="{}.wav".format(audio_name)))
+                    pattern, audio_basename=audio_name))
         else:
             if word is not None:
                 pprint(indexer.search_all(word))

@@ -18,7 +18,7 @@
 
 
 from __future__ import absolute_import, division, print_function
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from distutils.spawn import find_executable
 from functools import reduce, wraps
 from math import floor
@@ -57,6 +57,81 @@ else:
                 with self._recreate_cm():
                     return func(*args, **kwds)
             return inner
+
+
+class _PrettyDefaultDict(defaultdict):
+    # When printing the output of search_results, normally the defaultdict
+    # type would be shown as well. To print the `search_results` normally,
+    # defining a PrettyDefaultDict type that is printable the same way as a
+    # dict, is easier/faster than json.load(json.dump(x)) etc. and we don't
+    # actually have to deal with encoding either.
+    __repr__ = dict.__repr__
+
+
+class _WordBlock(object):
+    """
+    Holds a word with its starting second and ending second (with respect to
+    an audio file)
+
+    Attributes
+    ----------
+    word : str
+    start : float
+    end : float
+    """
+
+    def __init__(self, word, start, end):
+        self.word = word
+        self.start = round(start, 2)
+        self.end = round(end, 2)
+
+    def __eq__(self, other):
+        if type(other) is not _WordBlock:
+            raise TypeError
+        return (self.word == other.word and
+                self.start == other.start and
+                self.end == other.end)
+
+    def __getitem__(self, i):
+        if type(i) is not int:
+            raise TypeError
+        if i == 0:
+            return self.word
+        elif i == 1:
+            return self.start
+        elif i == 2:
+            return self.end
+        raise IndexError
+
+    def __repr__(self):
+        return "(\"{}\", {}, {})".format(self.word, self.start, self.end)
+
+
+class _Subdirectory_Managing_Decorator(ContextDecorator):
+
+        def __init__(self, src_dir, needed_directories):
+            self.src_dir = src_dir
+            self.needed_directories = needed_directories
+
+        def __enter__(self):
+            """
+            Creates the needed directories for audio processing.
+            """
+            if self.src_dir is not None:
+                for directory in self.needed_directories:
+                    if not os.path.exists("{}/{}".format(
+                            self.src_dir, directory)):
+                        os.mkdir("{}/{}".format(self.src_dir, directory))
+            return self
+
+        def __exit__(self, *args):
+            """
+            Removes the works of __enter__.
+            """
+            if self.src_dir is not None:
+                for directory in self.needed_directories:
+                    if os.path.exists("{}/{}".format(self.src_dir, directory)):
+                        rmtree("{}/{}".format(self.src_dir, directory))
 
 
 class SimpleAudioIndexer(object):
@@ -174,18 +249,15 @@ class SimpleAudioIndexer(object):
             default is False
         """
         assert mode.lower() in {"ibm", "cmu"}, (
-            "Mode has to be either `cmu` or `ibm`"
-        )
+            "Mode has to be either `cmu` or `ibm`")
         self.__mode = mode.lower()
         if self.__mode == "cmu":
             assert (all([x is None for x in {username_ibm, password_ibm}])), (
-                "Mode is `cmu`, IBM credentials should not be given"
-            )
+                "Mode is `cmu`, IBM credentials should not be given")
         elif self.__mode == "ibm":
             assert ((username_ibm is not None) and
                     (password_ibm is not None)), (
-                "Mode is `ibm`, IBM credentials must be provided"
-            )
+                "Mode is `ibm`, IBM credentials must be provided")
         assert os.path.exists(src_dir), ("Provided path doesn't exist")
 
         if src_dir[-1] == "/":
@@ -196,7 +268,16 @@ class SimpleAudioIndexer(object):
         self.__password_ibm = password_ibm
         self.verbose = verbose
         self.ibm_api_limit_bytes = ibm_api_limit_bytes
-        self.__timestamps = PrettyDefaultDict(list)
+        # __timestamps is for the regulated valid timestamps. Its values is
+        # a single list that contains WordBlocks. The timing of WordBlocks
+        # is calculated with respect to the entire audio file.
+        self.__timestamps = _PrettyDefaultDict(list)
+        # __timestamps_unregulated is for the intermediary processing. Its
+        # values is a list that contains other lists (as many as the splitted
+        # files in the staged directory) and those lists contain WordBlocks.
+        # The timing of WordBlocks is calculated with respect to the audio
+        # split.
+        self.__timestamps_unregulated = _PrettyDefaultDict(list)
         self.__errors = dict()
         self._needed_directories = needed_directories
 
@@ -256,8 +337,8 @@ class SimpleAudioIndexer(object):
             self.__username_ibm = username_ibm
         else:
             raise Exception(
-                "Mode is {}, whereas it must be `ibm`".format(self.get_moder())
-            )
+                "Mode is {}, whereas it must be `ibm`".format(
+                    self.get_moder()))
 
     def get_password_ibm(self):
         """
@@ -283,8 +364,7 @@ class SimpleAudioIndexer(object):
             self.__password_ibm = password_ibm
         else:
             raise Exception(
-                "Mode is {}, whereas it must be `ibm`".format(self.get_mode())
-            )
+                "Mode is {}, whereas it must be `ibm`".format(self.get_mode()))
 
     def get_verbosity(self):
         """
@@ -309,9 +389,7 @@ class SimpleAudioIndexer(object):
     def get_timestamps(self):
         """
         Returns a dictionary whose keys are audio file basenames and whose
-        values are a list of word blocks (a word block is a list which has
-        three elements, first one is a word <str>, second one is the starting
-        second <float> and the third on is the ending second <float>).
+        values are a list of word blocks.
         In case the audio file was large enough to be splitted, it adds seconds
         to correct timing and in case the timestamp was manually loaded, it
         leaves it alone.
@@ -372,8 +450,7 @@ class SimpleAudioIndexer(object):
             subprocess.check_output(
                 ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
                  ).format(audio_abs_path, "Channels"),
-                shell=True, universal_newlines=True).rstrip()
-        )
+                shell=True, universal_newlines=True).rstrip())
         return channel_num
 
     def _get_audio_sample_rate(self, audio_abs_path):
@@ -390,8 +467,7 @@ class SimpleAudioIndexer(object):
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'"""
                 ).format(audio_abs_path, "Sample Rate"),
-               shell=True, universal_newlines=True).rstrip()
-        )
+               shell=True, universal_newlines=True).rstrip())
         return sample_rate
 
     def _get_audio_sample_bit(self, audio_abs_path):
@@ -408,8 +484,7 @@ class SimpleAudioIndexer(object):
            subprocess.check_output(
                ("""sox --i {} | grep "{}" | awk -F " : " '{{print $2}}' | """
                 """grep -oh "^[^-]*" """).format(audio_abs_path, "Precision"),
-               shell=True, universal_newlines=True).rstrip()
-        )
+               shell=True, universal_newlines=True).rstrip())
         return sample_bit
 
     def _get_audio_duration_seconds(self, audio_abs_path):
@@ -429,8 +504,7 @@ class SimpleAudioIndexer(object):
             shell=True, universal_newlines=True).rstrip()
         total_seconds = sum(
             [float(x) * 60 ** (2 - i)
-             for i, x in enumerate(HHMMSS_duration.split(":"))]
-        )
+             for i, x in enumerate(HHMMSS_duration.split(":"))])
         return total_seconds
 
     def _get_audio_bit_rate(self, audio_abs_path):
@@ -447,13 +521,11 @@ class SimpleAudioIndexer(object):
             """sox --i {} | grep "{}" | awk -F " : " '{{print $2}}'""".format(
                 audio_abs_path, "Bit Rate"),
             shell=True, universal_newlines=True).rstrip()
-        bit_rate = (
-           lambda x:
-           int(x[:-1]) * 10 ** 3 if x[-1].lower() == "k" else
-           int(x[:-1]) * 10 ** 6 if x[-1].lower() == "m" else
-           int(x[:-1]) * 10 ** 9 if x[-1].lower() == "g" else
-           int(x)
-        )(bit_Rate_formatted)
+        bit_rate = (lambda x:
+                    int(x[:-1]) * 10 ** 3 if x[-1].lower() == "k" else
+                    int(x[:-1]) * 10 ** 6 if x[-1].lower() == "m" else
+                    int(x[:-1]) * 10 ** 9 if x[-1].lower() == "g" else
+                    int(x))(bit_Rate_formatted)
         return bit_rate
 
     def _seconds_to_HHMMSS(seconds):
@@ -517,8 +589,7 @@ class SimpleAudioIndexer(object):
                 results_abs_path.replace("*", "{:03d}".format(
                     current_segment)),
                 starting_second=current_segment, duration=(ending_second -
-                                                           current_segment)
-            )
+                                                           current_segment))
             current_segment += 1
 
     def _split_audio_by_size(self, audio_abs_path, results_abs_path,
@@ -653,21 +724,24 @@ class SimpleAudioIndexer(object):
         """
         if basename is not None:
             if basename in self.get_timestamps():
+                if self.get_verbosity():
+                    print("File specified was already indexed. Reindexing...")
                 del self.__timestamps[basename]
             self._filtering_step(basename)
             self._staging_step(basename)
         else:
             for audio_basename in self._list_audio_files():
-                if (
-                        replace_already_indexed and
-                        audio_basename in self.get_timestamps()
-                ):
-                    del self.__timestamps[audio_basename]
-                elif (
-                        not replace_already_indexed and
-                        audio_basename in self.get_timestamps()
-                ):
-                    continue
+                if audio_basename in self.__timestamps:
+                    if replace_already_indexed:
+                        if self.get_verbosity():
+                            print("Already indexed {}. Reindexing...".format(
+                                audio_basename))
+                        del self.__timestamps[audio_basename]
+                    else:
+                        if self.get_verbosity():
+                            print("Already indexed {}. Skipping...".format(
+                                audio_basename))
+                        continue
                 self._filtering_step(audio_basename)
                 self._staging_step(audio_basename)
 
@@ -697,14 +771,15 @@ class SimpleAudioIndexer(object):
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
             original_audio_name = ''.join(
-                staging_audio_basename.split('.')[:-1]
-            )[:-3]
+                staging_audio_basename.split('.')[:-1])[:-3]
             pocketsphinx_command = ''.join([
                 "pocketsphinx_continuous", "-infile",
                 str("{}/staging/{}".format(
                     self.src_dir, staging_audio_basename)),
                 "-time", "yes", "-logfn", "/dev/null"])
             try:
+                if self.get_verbosity():
+                    print("Now indexing {}".format(staging_audio_basename))
                 output = subprocess.check_output([
                     "pocketsphinx_continuous", "-infile",
                     str("{}/staging/{}".format(
@@ -713,16 +788,24 @@ class SimpleAudioIndexer(object):
                 ], universal_newlines=True).split('\n')
                 str_timestamps_with_sil_conf = list(map(
                     lambda x: x.split(" "), filter(None, output[1:])))
-                self.__timestamps[original_audio_name + ".wav"] = (
-                    self._timestamp_extractor_cmu(
-                        staging_audio_basename, str_timestamps_with_sil_conf))
+                # Timestamps are putted in a list of a single element. To match
+                # Watson's output.
+                self.__timestamps_unregulated[
+                    original_audio_name + ".wav"] = [(
+                        self._timestamp_extractor_cmu(
+                            staging_audio_basename,
+                            str_timestamps_with_sil_conf))]
+                if self.get_verbosity():
+                    print("Done indexing {}".format(staging_audio_basename))
             except OSError as e:
                 if self.get_verbosity():
                     print(e, "The command was: {}".format(
                         pocketsphinx_command))
                 self.__errors[(time(), staging_audio_basename)] = e
+        self._timestamp_regulator()
 
-        self.__timestamps = self._timestamp_regulator()
+        if self.get_verbosity():
+            print("Finished indexing procedure")
 
     def _timestamp_extractor_cmu(self, staging_audio_basename,
                                  str_timestamps_with_sil_conf):
@@ -746,13 +829,13 @@ class SimpleAudioIndexer(object):
             str_timestamp[:-1]
             for str_timestamp in filter_untimed
             if not any([letter in {"<", ">", "/"}
-                        for letter in ''.join(str_timestamp)])
-        ]
+                        for letter in ''.join(str_timestamp)])]
         timestamps = list([
-            [re.findall("^[^\(]+", x[0])[0],
-             round(float(x[1]), 2), round(float(x[2]), 2)]
-            for x in str_timestamps
-        ])
+            _WordBlock(
+                word=re.findall("^[^\(]+", x[0])[0],
+                start=round(float(x[1]), 2),
+                end=round(float(x[2]), 2)
+            ) for x in str_timestamps])
         return timestamps
 
     def _index_audio_ibm(self, basename=None, replace_already_indexed=False,
@@ -847,8 +930,7 @@ class SimpleAudioIndexer(object):
         for staging_audio_basename in self._list_audio_files(
                 sub_dir="staging"):
             original_audio_name = ''.join(
-                staging_audio_basename.split('.')[:-1]
-            )[:-3]
+                staging_audio_basename.split('.')[:-1])[:-3]
             with open("{}/staging/{}".format(
                     self.src_dir, staging_audio_basename), "rb") as f:
                 if self.get_verbosity():
@@ -862,12 +944,16 @@ class SimpleAudioIndexer(object):
                     params=params)
                 if self.get_verbosity():
                     print("Indexing {}...".format(staging_audio_basename))
-                    print(self.__timestamps)
-                self.__timestamps[original_audio_name + ".wav"].append(
-                    self._timestamp_extractor_ibm(staging_audio_basename,
-                                                  json.loads(response.text))
-                )
-        self.__timestamps = self._timestamp_regulator()
+                self.__timestamps_unregulated[
+                    original_audio_name + ".wav"].append(
+                        self._timestamp_extractor_ibm(
+                            staging_audio_basename, json.loads(response.text)))
+                if self.get_verbosity():
+                    print("Done indexing {}".format(staging_audio_basename))
+        self._timestamp_regulator()
+
+        if self.get_verbosity():
+            print("Indexing procedure finished")
 
     def _timestamp_extractor_ibm(self, staging_audio_basename, audio_json):
         """
@@ -887,13 +973,14 @@ class SimpleAudioIndexer(object):
         try:
             timestamps_of_sentences = [
                 audio_json['results'][i]['alternatives'][0]['timestamps']
-                for i in range(len(audio_json['results']))
-            ]
+                for i in range(len(audio_json['results']))]
             return [
-                [word[0], round(float(word[1]), 2), round(float(word[2]), 2)]
-                for sentence_block in timestamps_of_sentences
-                for word in sentence_block
-            ]
+                _WordBlock(
+                    word=word_block[0],
+                    start=round(float(word_block[1]), 2),
+                    end=round(float(word_block[2]), 2)
+                ) for sentence_block in timestamps_of_sentences
+                for word_block in sentence_block]
         except KeyError:
             self.__errors[(time(), staging_audio_basename)] = audio_json
             if self.get_verbosity():
@@ -1015,7 +1102,6 @@ class SimpleAudioIndexer(object):
 
         Else if mode is `cmu`, then _index_audio_cmu would be called:
         """
-
         with _Subdirectory_Managing_Decorator(
                 self.src_dir, self._needed_directories):
             if self.get_mode() == "ibm":
@@ -1023,103 +1109,65 @@ class SimpleAudioIndexer(object):
             elif self.get_mode() == "cmu":
                 self._index_audio_cmu(*args, **kwargs)
 
-    def _word_block_validator(self, possibly_word_block):
-        """
-        A word block is of the form [str, float, float].
-
-        Parameters
-        ----------
-        possibly_word_block : object
-
-        Returns
-        -------
-        bool
-        """
-        return (
-            type(possibly_word_block) is list and
-            len(possibly_word_block) == 3 and
-            type(possibly_word_block[0]) in {str, unicode} and
-            type(possibly_word_block[1]) in {int, long, float} and
-            type(possibly_word_block[2]) in {int, long, float}
-        )
-
-    def _timestamp_basename_is_regulated(self, timestamp_basename):
-        number_of_splitted_files = len(self.__timestamps[timestamp_basename])
-        if number_of_splitted_files > 1:
-            return False
-        return all([self._word_block_validator(maybe_word_block)
-                    for maybe_word_block in self.__timestamps[
-                            timestamp_basename][0]])
-
     def _timestamp_regulator(self):
         """
-        Returns a dictionary whose keys are audio file basenames and whose
-        values are a list of word blocks (a word block is a list which has
-        three elements, first one is a word <str>, second one is the starting
-        second <float> and the third on is the ending second <float>).
+        Makes a dictionary whose keys are audio file basenames and whose
+        values are a list of word blocks from unregulated timestamps and
+        updates the main timestamp attribute. After all done, purges
+        unregulated ones.
         In case the audio file was large enough to be splitted, it adds seconds
         to correct timing and in case the timestamp was manually loaded, it
         leaves it alone.
 
-        Note that even if no operation is done on the word blocks, the output
-        of this method would be different than that of self.__timestamps while
-        index_audio method is still running.
-        The timestamps attribute is a dictionary whose keys are basenames but
-        whose values are lists corresponding to different blocks of 100Mbs or
-        less splitted audio files and each list is then composed of lists of
-        word blocks. So the signature of self.__timestamps would be
-        {str: [[[str, float, float]]]} which one dimension more than the output
-        of this method - since here we don't differentiate between different
-        splits of an audio file and we put the result of all splits in a single
-        list.
-
-        Returns
-        -------
-        unified_timestamp : {str: [[str, float, float]]}
+        Note that the difference between self.__timestamps and
+        self.__timestamps_unregulated is that in the regulated version,
+        right after the word, a list of word blocks must appear. However in the
+        unregulated version, after a word, a list of individual splits
+        containing word blocks would appear!
         """
-        unified_timestamps = PrettyDefaultDict(list)
+        unified_timestamps = _PrettyDefaultDict(list)
         staged_files = self._list_audio_files(sub_dir="staging")
-        for timestamp_basename in self.__timestamps:
-            if not self._timestamp_basename_is_regulated(timestamp_basename):
+        for timestamp_basename in self.__timestamps_unregulated:
+            if len(self.__timestamps_unregulated[timestamp_basename]) > 1:
+                # File has been splitted
                 timestamp_name = ''.join(timestamp_basename.split('.')[:-1])
                 staged_splitted_files_of_timestamp = list(
                     filter(lambda staged_file: (
                         timestamp_name == staged_file[:-3] and
                         all([(x in set(map(str, range(10))))
-                             for x in staged_file[-3:]])
-                    ), staged_files))
-                if staged_splitted_files_of_timestamp is None:
+                             for x in staged_file[-3:]])), staged_files))
+                if len(staged_splitted_files_of_timestamp) == 0:
                     self.__errors[(time(), timestamp_basename)] = {
                         "reason": "Missing staged file",
-                        "current_staged_files": staged_files
-                    }
+                        "current_staged_files": staged_files}
                     continue
                 staged_splitted_files_of_timestamp.sort()
                 unified_timestamp = list()
                 for staging_digits, splitted_file in enumerate(
-                        self.__timestamps[timestamp_basename]):
+                        self.__timestamps_unregulated[timestamp_basename]):
                     prev_splits_sec = 0
                     if int(staging_digits) != 0:
                         prev_splits_sec = self._get_audio_duration_seconds(
                             "{}/staging/{}{:03d}".format(
                                 self.src_dir, timestamp_name,
-                                staging_digits - 1
-                            ))
-                    for splitted_file_timestamp in splitted_file:
-                        unified_timestamp.append([
-                            splitted_file_timestamp[0],
-                            round(splitted_file_timestamp[1] +
-                                  prev_splits_sec, 2),
-                            round(splitted_file_timestamp[2] +
-                                  prev_splits_sec, 2)
-                        ])
+                                staging_digits - 1))
+                    for word_block in splitted_file:
+                        unified_timestamp.append(
+                            _WordBlock(
+                                word=word_block.word,
+                                start=round(word_block.start +
+                                            prev_splits_sec, 2),
+                                end=round(word_block.end +
+                                          prev_splits_sec, 2)))
                 unified_timestamps[
                     str(timestamp_basename)] += unified_timestamp
             else:
-                print("here", timestamp_basename)
-                unified_timestamps[timestamp_basename] += self.__timestamps[
-                    timestamp_basename][0]
-        return unified_timestamps
+                unified_timestamps[
+                    timestamp_basename] += self.__timestamps_unregulated[
+                        timestamp_basename][0]
+
+        self.__timestamps.update(unified_timestamps)
+        self.__timestamps_unregulated = _PrettyDefaultDict(list)
 
     def save_indexed_audio(self, indexed_audio_file_abs_path):
         """
@@ -1230,12 +1278,9 @@ class SimpleAudioIndexer(object):
 
         def extra_freq_check(sub, sup, list_of_tups):
             # Would be used for matching anagrams, subsequences etc.
-            return (
-                len(list_of_tups) > 0 and
-                all([
-                    Counter(sub)[tup[0]] <= Counter(sup)[tup[1]]
-                    for tup in list_of_tups])
-            )
+            return (len(list_of_tups) > 0 and
+                    all([Counter(sub)[tup[0]] <= Counter(sup)[tup[1]]
+                         for tup in list_of_tups]))
 
         # Regarding containment checking while having extra conditions,
         # there's no good way to map each anagram or subseuqnece etc. that was
@@ -1347,77 +1392,86 @@ class SimpleAudioIndexer(object):
             words in the query minus 2 (since the first and the last word
             cannot be removed)
         """
-        query_words = list(
-            filter(None, ''.join(
-                filter(lambda char: char in (ascii_letters + " "), list(query))
-                ).split(" ")
-            )
-        )
+        def case_sensitivity_handler(case_sensitive=case_sensitive):
+
+            def get_query_words(query, case_sensitive=case_sensitive):
+                query_words = list(
+                    filter(None, ''.join(
+                        filter(lambda char: char in (ascii_letters + " "),
+                               list(query))).split(" ")))
+                if case_sensitive:
+                    return query_words
+                return [q.lower() for q in query_words]
+
+            def get_timestamps(case_sensitive=case_sensitive):
+                timestamps = self.get_timestamps().copy()
+                if not case_sensitive:
+                    return {
+                        audio_basename: [
+                            _WordBlock(word=word_block.word.lower(),
+                                       start=word_block.start,
+                                       end=word_block.end)
+                            for word_block in timestamps[audio_basename]]
+                        for audio_basename in timestamps}
+                return timestamps
+
+            return locals()
+
+        query_words = case_sensitivity_handler()["get_query_words"](query)
+        timestamps = case_sensitivity_handler()["get_timestamps"]()
+
         assert abs(missing_word_tolerance -
                    (len(query_words) - 2)) >= 0, (
             "The number of words that can be missing must be less than "
             "the total number of words within the query minus the first and "
             "the last word."
         )
-        timestamps = self.get_timestamps()
-        if not case_sensitive:
-            query_words = [x.lower() for x in query_words]
-            timestamps = {
-                key: [
-                    [word_block[0].lower(), word_block[1], word_block[2]]
-                    for word_block in timestamps[key]
-                ] for key in timestamps
-            }
 
         for audio_filename in (
                 (lambda: (timestamps.keys() if audio_basename is None else
-                          [audio_basename]))()
-        ):
+                          [audio_basename]))()):
             result = list()
             missed_words_so_far = 0
             query_cursor = 0
             try:
-                # word_block's format: [str, float, float]
                 for word_block in timestamps[audio_filename]:
                     if (
                             # When the query is identical
-                            (word_block[0] == query_words[query_cursor]) or
+                            (word_block.word == query_words[query_cursor]) or
                             # When the query is a subsequence of what's
                             # available
                             (subsequence and
                              self._is_subsequence_of(query_words[query_cursor],
-                                                     word_block[0])) or
+                                                     word_block.word)) or
                             # When the query is a supersequence of what's
                             # available
                             (supersequence and self._is_supersequence_of(
-                                query_words[query_cursor], word_block[0])) or
+                                query_words[query_cursor], word_block.word)) or
                             # When query is a permutation of what's available.
                             (anagram and self._is_anagram_of(
-                                query_words[query_cursor], word_block[0]))
+                                query_words[query_cursor], word_block.word))
                     ):
-                        result.append(tuple(word_block))
+                        result.append(word_block)
 
                         if timing_error is not None:
                             try:
-                                if round(result[-1][-2] -
-                                         result[-2][-1], 4) > timing_error:
+                                if round(result[-1].start -
+                                         result[-2].end, 4) > timing_error:
                                     result = list()
                                     query_cursor = 0
                             except IndexError:
                                 pass
 
                         if self._partial_search_validator(
-                                query_words, [x[0] for x in result],
+                                query_words, [x.word for x in result],
                                 anagram=anagram,
                                 subsequence=subsequence,
-                                supersequence=supersequence
-                        ):
+                                supersequence=supersequence):
                             yield {
                                 "File Name": audio_filename,
                                 "Query": query,
-                                "Result": tuple([result[0][1],
-                                                 result[-1][-1]])
-                            }
+                                "Result": tuple([result[0].start,
+                                                 result[-1].end])}
                             result = list()
                             query_cursor = 0
 
@@ -1429,7 +1483,7 @@ class SimpleAudioIndexer(object):
                         query_cursor = 0
 
                     elif (missing_word_tolerance > 0) and (len(result) > 0):
-                        result.append(tuple(word_block))
+                        result.append(word_block)
                         missed_words_so_far += 1
 
             except KeyError:
@@ -1531,14 +1585,13 @@ class SimpleAudioIndexer(object):
             "supersequence": supersequence,
             "timing_error": timing_error,
             "anagram": anagram,
-            "missing_word_tolerance": missing_word_tolerance
-        }
+            "missing_word_tolerance": missing_word_tolerance}
 
         if not isinstance(queries, (list, str)):
             raise TypeError("Invalid query type.")
         if type(queries) is not list:
             queries = [queries]
-        search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
+        search_results = _PrettyDefaultDict(lambda: _PrettyDefaultDict(list))
         for query in queries:
             search_gen = self.search_gen(query=query,
                                          **search_gen_rest_of_kwargs)
@@ -1616,68 +1669,25 @@ class SimpleAudioIndexer(object):
                 if index_end > space_index:
                     block_number_end = (len(space_indexes) - block_cursor)
                     break
-            return (timestamps[audio_basename][block_number_start][1],
-                    timestamps[audio_basename][block_number_end][-1])
+            return (timestamps[audio_basename][block_number_start].start,
+                    timestamps[audio_basename][block_number_end].end)
 
         timestamps = self.get_timestamps()
         if audio_basename is not None:
             timestamps = {audio_basename: timestamps[audio_basename]}
         transcription = {
             audio_basename: ' '.join(
-                [word_block[0] for word_block in timestamps[audio_basename]]
-            ) for audio_basename in timestamps
-        }
+                [word_block.word for word_block in timestamps[audio_basename]]
+            ) for audio_basename in timestamps}
         match_map = map(
             lambda audio_basename: tuple((
                 audio_basename,
-                re.finditer(pattern, transcription[audio_basename])
-            )),
-            transcription.keys()
-        )
-        search_results = PrettyDefaultDict(lambda: PrettyDefaultDict(list))
+                re.finditer(pattern, transcription[audio_basename]))),
+            transcription.keys())
+        search_results = _PrettyDefaultDict(lambda: _PrettyDefaultDict(list))
         for audio_basename, match_iter in match_map:
             for match in match_iter:
                 search_results[match.group()][audio_basename].append(
-                    tuple(
-                            indexes_in_transcript_to_start_end_second(
-                                match.span(), audio_basename
-                            )
-                    )
-                )
+                    tuple(indexes_in_transcript_to_start_end_second(
+                        match.span(), audio_basename)))
         return search_results
-
-
-class PrettyDefaultDict(defaultdict):
-    # When printing the output of search_results, normally the defaultdict
-    # type would be shown as well. To print the `search_results` normally,
-    # defining a PrettyDefaultDict type that is printable the same way as a
-    # dict, is easier/faster than json.load(json.dump(x)) etc. and we don't
-    # actually have to deal with encoding either.
-    __repr__ = dict.__repr__
-
-
-class _Subdirectory_Managing_Decorator(ContextDecorator):
-
-        def __init__(self, src_dir, needed_directories):
-            self.src_dir = src_dir
-            self.needed_directories = needed_directories
-
-        def __enter__(self):
-            """
-            Creates the needed directories for audio processing.
-            """
-            if self.src_dir is not None:
-                for directory in self.needed_directories:
-                    if not os.path.exists("{}/{}".format(
-                            self.src_dir, directory)):
-                        os.mkdir("{}/{}".format(self.src_dir, directory))
-            return self
-
-        def __exit__(self, *args):
-            """
-            Removes the works of __enter__.
-            """
-            if self.src_dir is not None:
-                for directory in self.needed_directories:
-                    if os.path.exists("{}/{}".format(self.src_dir, directory)):
-                        rmtree("{}/{}".format(self.src_dir, directory))
