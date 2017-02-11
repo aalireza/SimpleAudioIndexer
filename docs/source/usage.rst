@@ -135,7 +135,7 @@ Afterwards, you should create an instance of `sai`
 
 .. code-block:: python
 
-  >>> indexer = sai(mode="ibm", src_dir="SRC_DIR", username_ibm="USERNAME", password_ibm="PASSWORD)
+  >>> indexer = sai(mode="ibm", src_dir="SRC_DIR", username_ibm="USERNAME", password_ibm="PASSWORD")
 
 
 Note that if you choose your mode to be `cmu`, then you no longer have to provide
