@@ -11,6 +11,7 @@ SimpleAudioIndexer
 - `Description <#description>`__
 - `What can it do? <#what-can-it-do>`__
 - `Documentation <#documentation>`__
+- `Requirements <#requirements>`__
 - `Installation <#installation>`__
 - `Uninstallation <#uninstallation>`__
 - `Command-line Usage <#command-line-usage>`__
@@ -31,7 +32,7 @@ searching capability and provides some [so-called] advanced searching abilities!
 What can it do?
 ---------------
 
-+ Index audio files and save/load the results.
++ Index audio files (using Watson (Online/Higher-quality) or CMU Pocketsphinx (Offline/Lower-quality)) and save/load the results.
 + Searching within audio files in multiple languages (default is English)
 + Define a timing error for your queries to handle discrepencies.
 + Define constraints on your queries, e.g. whether to include (sub/super)sequences,
@@ -45,9 +46,18 @@ Documentation
 To read the documentation, visit `here <http://simpleaudioindexer.readthedocs.io/>`__.
 
 
-Installation
+Requirements
 ------------
 
++ Python 2.7, 3.3, 3.4, 3.5, 3.6 with pip installed.
++ Watson API Credentials and/or CMU Pocketsphinx
++ `sox`
++ `ffmpeg` if you choose CMU Pocketsphinx.
++ `py.text` and `tox` if you want to run the tests.
+
+
+Installation
+--------------
 Open up a terminal and enter:
 
 ::
@@ -55,8 +65,7 @@ Open up a terminal and enter:
   pip install SimpleAudioIndexer
 
 
-You should also be installing `sox` and get IBM Watson API credentials. To do
-so, visit `here <https://simpleaudioindexer.readthedocs.io/installation/>`__.
+Installation details can be found at the documentations `here <https://simpleaudioindexer.readthedocs.io/installation/>`__.
 
 There's a `dockerfile <https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/Dockerfile>`_
 included withing the repo if you're unable to do a native installation or are
@@ -76,37 +85,73 @@ Uninstalling `sox`, however, is dependent upon whether you're on a Linux or Mac
 system. For more information, visit `here <https://simpleaudioindexer.readthedocs.io/installation/#uninstall>`__.
 
 
+Demo
+----
+
+Say you have this audio file:
+
+.. raw:: html
+  <audio src="https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav" controls>
+    <embed
+      src="https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav"
+      width="300"
+      height="90"
+      loop="false"
+      autostart="false>
+  </audio>
+
+Have it downloaded to a directory. We'd refer to that directory as `SRC_DIR`
+and the name of this audio file as `small_audio.wav`
+
+Here's how you can search through it.
+
 Command-line Usage
-------------------
+++++++++++++++++++
 
-Prepare a directory that contains your audio files (`wav` format). Then
-
-open up a terminal and enter:
+Open up a terminal and enter.
 
 ::
 
-   sai -u USERNAME -p PASSWORD -d SRC_DIR -s "apple"
+   $ sai --mode "ibm" --username_ibm USERNAME --password_ibm PASSWORD --src_dir SRC_DIR --search "called"
+   {'called': {'small_audio.wav': [(1.25, 1.71)]}}
 
 Replace `USERNAME` and `PASSWORD` with your IBM Watson's credentials and `SRC_DIR`
 with the absolute path to the directory you just prepared.
 
-What comes after `-s` switch, is your query. With the command above, you just
-searched for "apple" inside those audio files!
+The out would be, like above, a dictionary that has the query, the file(s) it
+appears in and the all of the (starting second, ending second) of that query.
 
-You could also match a regex pattern like below:
+Note that all commands work uniformally for other engines (i.e. Pocketsphinx),
+for example the command above can be enterred as:
 
 ::
 
-   sai -u USERNAME -p PASSWORD -d SRC_DIR -s " T[a-z][a-z] "
+   $ sai --mode "cmu" --src_dir SRC_DIR --search "lives"
 
-Which would search for three letters words starting with T.
+   {'our': {'small_audio': [(2.93, 3.09)]}}
+
+Which would use Pocketsphinx instead of Watson to get the timestamps. Note that
+the quality/accuracy of Pocketsphinx is much lower than Watson.
+
+Instead of searching for a word, you could also match a regex pattern, for example:
+
+::
+
+   $ sai --mode ibm --src_dir SRC_DIR --username_ibm USERNAME --password_ibm PASSWORD --regexp " [a-z][a-z] "
+   {u' in ': {'small_audio.wav': [(2.81, 2.93)]},
+   {u' to ': {'small_audio.wav': [(1.71, 1.81)]}}
+   
+That was the result of searching for two letter words. Note that your results
+would match any aribtrary regular expressions. 
 
 You may also save and load the indexed data from the command line script. For
 more information, visit `here <https://simpleaudioindexer.readthedocs.io/usage/#as-a-command-line-script>`__.
 
 
 Library Usage
---------------
++++++++++++++
+
+Say you have this file
 
 .. code-block:: python
 
@@ -116,7 +161,7 @@ Afterwards, you should create an instance of `sai`
 
 .. code-block:: python
 
-  >>> indexer = sai(USERNAME, PASSWORD, SRC_DIR)
+  >>> indexer = sai(mode="ibm", src_dir="SRC_DIR", username_ibm="USERNAME", password_ibm="PASSWORD")
 
 Now you may index all the available audio files by calling `index_audio` method:
 
@@ -128,10 +173,10 @@ You could have a searching generator:
 
 .. code-block:: python
 
-  >>> searcher = indexer.search_gen(query="hello")
+  >>> searcher = indexer.search_gen(query="called")
   # If you're on python 2.7, instead of below, do print searcher.next()
   >>> print(next(searcher))
-  {"Query": "hello", "File Name": "audio.wav", "Result": [(0.01, 0.05)]
+  {'Query': 'called', 'File Name': 'small_audio.wav', 'Result': (1.25, 1.71)}
 
 Now there are quite a few more arguments implemented for search_gen. Say you
 wanted your search to be case sensitive (by default it's not).
@@ -143,22 +188,15 @@ For a full list, see the API reference `here <./reference.html
 #SimpleAudioIndexer.SimpleAudioIndexer.search_gen>`__
 
 
-You could also call `search_all` method to have search for a list of queries
-within all the audio files:
-
-.. code-block:: python
-
-  >>> print(indexer.search_all(queries=["hello", "yo"]))
-  {"hello": {"audio.wav": [(0.01, 0.05)]}, {"yo": {"another.wav": [(0.01, 0.02)]}}}
+Note that you could also call `search_all` method to have search for a list of
+queries within all the audio files:
 
 Finally, you could do a regex search!
 
 .. code-block:: python
 
-   >>> print(indexer.search_regexp(pattern=" [a-z][a-z][a-z] ")
-   {"are": {"audio.wav": [(0.08, 0.11)]}, "how": {"audio.wav": [(0.05, 0.08)]},
-   "you": {"audio.wav": [(0.11, 0.14)]}}
-
+   >>> print(indexer.search_regexp(pattern="[A-Z][^l]* ")
+   {u'Americans are ca': {'small_audio.wav': [(0.21, 1.71)]}}
 
 There are more functionalities implemented. For detailed explainations, read the
 documentation `here <https://simpleaudioindexer.readthedocs.io/usage/#as-a-python-library>`__.
@@ -178,7 +216,7 @@ Contributing
 -------------
 
 Should you want to contribute code or ideas, file a bug request or give
-feedback, Visit the `CONTRIBUTING <CONTRIBUTING.rst>`_ file.
+feedback, Visit the `CONTRIBUTING <https://github.com/aalireza/SimpleAudioIndexer/blob/master/CONTRIBUTING.rst>`_ file.
 
 Authors
 -------
@@ -191,7 +229,7 @@ to this project.
 License
 -------
 
-This project is licensed under the Apache v2.0 license - see the `LICENCE <LICENSE>`_
+This project is licensed under the Apache v2.0 license - see the `LICENCE <https://github.com/aalireza/SimpleAudioIndexer/blob/master/LICENSE>`_
 file for more details.
 
 
