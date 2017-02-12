@@ -1,7 +1,7 @@
 SimpleAudioIndexer
 ==================
 
-.. image:: docs/source/images/sai_logo.png
+.. image:: http://rafiei.net/assets/sai/sai_logo.png
          :alt: Simple Audio Indexer: Index audio files and search for a word/phrase or match regex patterns 
          :align: center
 
@@ -247,7 +247,7 @@ file for more details.
           :alt: Wheel ready
 
 .. |small_audio| image:: http://rafiei.net/assets/play_button.png
-                :target: https://raw.githubusercontent.com/aalireza/SimpleAudioIndexer/master/tests/data/small_audio.wav
+                :target: http://rafiei.net/assets/sai/small_audio.wav
                 :alt: Demo audio file
 
 .. _Documentation: https://github.com/aalireza/SimpleAudioIndexer/docs
