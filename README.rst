@@ -122,7 +122,7 @@ for example the command above can be enterred as:
 
    $ sai --mode "cmu" --src_dir SRC_DIR --search "lives"
 
-   {'our': {'small_audio': [(2.93, 3.09)]}}
+   {'lives': {'small_audio.wav': [(3.12, 3.88)]}}
 
 Which would use Pocketsphinx instead of Watson to get the timestamps. Note that
 the quality/accuracy of Pocketsphinx is much lower than Watson.
