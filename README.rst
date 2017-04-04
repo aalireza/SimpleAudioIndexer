@@ -169,7 +169,6 @@ You could have a searching generator:
 .. code-block:: python
 
   >>> searcher = indexer.search_gen(query="called")
-  # If you're on python 2.7, instead of below, do print searcher.next()
   >>> print(next(searcher))
   {'Query': 'called', 'File Name': 'small_audio.wav', 'Result': (1.25, 1.71)}
 
