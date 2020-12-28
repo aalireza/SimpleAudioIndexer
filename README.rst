@@ -1,3 +1,6 @@
+WARNiNG: I no longer have the time to maintain this library. Contact me if you want to become the mantainer.
+============================================================================================================
+
 SimpleAudioIndexer
 ==================
 
